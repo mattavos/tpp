@@ -81,6 +81,11 @@ type Expect struct {
 	//
 	// This is separated out from `Return` for convenience and readability.
 	Err bool
+
+	// Error is the error to return, if Err is true.
+	//
+	// A default error is used if this is nil.
+	Error error
 }
 
 // OK returns an Expect with the given return and no error.
@@ -92,11 +97,20 @@ func OK(returns ...any) Expect {
 	}
 }
 
-// Err returns an Expect with an error.
+// Err returns an Expect with a generic test error.
 func Err() Expect {
 	return Expect{
 		Expected: True(),
 		Err:      true,
+	}
+}
+
+// Error returns an Expect with the given error.
+func Error(e error) Expect {
+	return Expect{
+		Expected: True(),
+		Err:      true,
+		Error:    e,
 	}
 }
 
@@ -172,6 +186,11 @@ func (e *Expect) Expectorise(mock Mocker) {
 		mock.Maybe()
 	}
 
+	errToReturn := errTest
+	if e.Error != nil {
+		errToReturn = e.Error
+	}
+
 	if e.Return == nil {
 		// The Expect hasn't specified the return values, so construct empty ones
 		emptyArgs := make([]reflect.Value, returnMethodNArgs)
@@ -179,7 +198,7 @@ func (e *Expect) Expectorise(mock Mocker) {
 			argType := returnMethodType.In(i)
 			if argType.Name() == "error" {
 				if e.Err {
-					emptyArgs[i] = reflect.ValueOf(errTest)
+					emptyArgs[i] = reflect.ValueOf(errToReturn)
 				} else {
 					emptyArgs[i] = reflect.Zero(argType)
 				}
@@ -195,7 +214,7 @@ func (e *Expect) Expectorise(mock Mocker) {
 	// The Expect has specified return values: use those.
 	returns := append([]any{}, e.Return...)
 	if e.Err {
-		returns = append(returns, errTest)
+		returns = append(returns, errToReturn)
 	} else if returnMethodIncludesErr {
 		var err error
 		returns = append(returns, err)
@@ -237,7 +256,7 @@ func OKs(calls []Call) Expects {
 	}
 }
 
-// Errs returns an Expects with an error.
+// Errs returns an Expects with a generic test error.
 func Errs() Expects {
 	return Expects{
 		Expected: True(),
