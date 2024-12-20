@@ -196,7 +196,8 @@ func (e *Expect) Expectorise(mock Mocker) {
 	}
 
 	if e.times != nil {
-		timesMethod := reflect.ValueOf(mock).MethodByName(("Times"))
+		// Not sure how this interacts with the mock.Maybe() above, need a test..?
+		timesMethod := reflect.ValueOf(mock).MethodByName("Times")
 		if !timesMethod.IsValid() {
 			panic("given mock has no Times method")
 		}
