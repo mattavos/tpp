@@ -74,13 +74,14 @@ type Expect struct {
 
 	// Return are the *non-error* returns for the mock.
 	//
-	// If you want an error to be returned, set Expect.Err = true.
+	// If you want an error to be returned, place it in Expect.Err.
 	Return []any
 
-	// Err determines whether we should append an error to the mock's returns.
+	// Err determines the error which will be appended to the mock's returns. If
+	// it is nil, no error will be appended.
 	//
 	// This is separated out from `Return` for convenience and readability.
-	Err bool
+	Err error
 }
 
 // OK returns an Expect with the given return and no error.
@@ -88,15 +89,23 @@ func OK(returns ...any) Expect {
 	return Expect{
 		Expected: True(),
 		Return:   returns,
-		Err:      false,
+		Err:      nil,
 	}
 }
 
-// Err returns an Expect with an error.
+// Err returns an Expect with a generic test error.
 func Err() Expect {
 	return Expect{
 		Expected: True(),
-		Err:      true,
+		Err:      errTest,
+	}
+}
+
+// ErrWith returns an Expect with the given error.
+func ErrWith(e error) Expect {
+	return Expect{
+		Expected: True(),
+		Err:      e,
 	}
 }
 
@@ -178,8 +187,8 @@ func (e *Expect) Expectorise(mock Mocker) {
 		for i := 0; i < returnMethodNArgs; i++ {
 			argType := returnMethodType.In(i)
 			if argType.Name() == "error" {
-				if e.Err {
-					emptyArgs[i] = reflect.ValueOf(errTest)
+				if e.Err != nil {
+					emptyArgs[i] = reflect.ValueOf(e.Err)
 				} else {
 					emptyArgs[i] = reflect.Zero(argType)
 				}
@@ -194,8 +203,8 @@ func (e *Expect) Expectorise(mock Mocker) {
 
 	// The Expect has specified return values: use those.
 	returns := append([]any{}, e.Return...)
-	if e.Err {
-		returns = append(returns, errTest)
+	if e.Err != nil {
+		returns = append(returns, e.Err)
 	} else if returnMethodIncludesErr {
 		var err error
 		returns = append(returns, err)
@@ -237,7 +246,7 @@ func OKs(calls []Call) Expects {
 	}
 }
 
-// Errs returns an Expects with an error.
+// Errs returns an Expects with a generic test error.
 func Errs() Expects {
 	return Expects{
 		Expected: True(),
