@@ -81,6 +81,9 @@ type Expect struct {
 	//
 	// This is separated out from `Return` for convenience and readability.
 	Err bool
+
+	// times determines how many times the mock should be called.
+	times *int
 }
 
 // OK returns an Expect with the given return and no error.
@@ -119,6 +122,26 @@ func (e *Expect) Injecting(ret any) *Expect {
 		Return:   append(e.Return, ret),
 		Err:      e.Err,
 	}
+}
+
+// Times sets how many times the mock should be called.
+// Returns a pointer to allow method chaining.
+func (e *Expect) Times(n int) *Expect {
+	if n < 0 {
+		panic("Times cannot be negative")
+	}
+
+	return &Expect{
+		Expected: e.Expected,
+		Return:   e.Return,
+		Err:      e.Err,
+		times:    &n,
+	}
+}
+
+// Once is shorthand for Times(1)
+func (e *Expect) Once() *Expect {
+	return e.Times(1)
 }
 
 // Mocker represents a Mockery mock.
@@ -170,6 +193,14 @@ func (e *Expect) Expectorise(mock Mocker) {
 
 	if e.Expected == nil {
 		mock.Maybe()
+	}
+
+	if e.times != nil {
+		timesMethod := reflect.ValueOf(mock).MethodByName(("Times"))
+		if !timesMethod.IsValid() {
+			panic("given mock has no Times method")
+		}
+		timesMethod.Call([]reflect.Value{reflect.ValueOf(*e.times)})
 	}
 
 	if e.Return == nil {
