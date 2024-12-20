@@ -105,8 +105,8 @@ func Err() Expect {
 	}
 }
 
-// Error returns an Expect with the given error.
-func Error(e error) Expect {
+// ErrWith returns an Expect with the given error.
+func ErrWith(e error) Expect {
 	return Expect{
 		Expected: True(),
 		Err:      true,
