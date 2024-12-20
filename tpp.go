@@ -74,18 +74,14 @@ type Expect struct {
 
 	// Return are the *non-error* returns for the mock.
 	//
-	// If you want an error to be returned, set Expect.Err = true.
+	// If you want an error to be returned, place it in Expect.Err.
 	Return []any
 
-	// Err determines whether we should append an error to the mock's returns.
+	// Err determines the error which will be appended to the mock's returns. If
+	// it is nil, no error will be appended.
 	//
 	// This is separated out from `Return` for convenience and readability.
-	Err bool
-
-	// Error is the error to return, if Err is true.
-	//
-	// A default error is used if this is nil.
-	Error error
+	Err error
 }
 
 // OK returns an Expect with the given return and no error.
@@ -93,7 +89,7 @@ func OK(returns ...any) Expect {
 	return Expect{
 		Expected: True(),
 		Return:   returns,
-		Err:      false,
+		Err:      nil,
 	}
 }
 
@@ -101,7 +97,7 @@ func OK(returns ...any) Expect {
 func Err() Expect {
 	return Expect{
 		Expected: True(),
-		Err:      true,
+		Err:      errTest,
 	}
 }
 
@@ -109,8 +105,7 @@ func Err() Expect {
 func ErrWith(e error) Expect {
 	return Expect{
 		Expected: True(),
-		Err:      true,
-		Error:    e,
+		Err:      e,
 	}
 }
 
@@ -186,19 +181,14 @@ func (e *Expect) Expectorise(mock Mocker) {
 		mock.Maybe()
 	}
 
-	errToReturn := errTest
-	if e.Error != nil {
-		errToReturn = e.Error
-	}
-
 	if e.Return == nil {
 		// The Expect hasn't specified the return values, so construct empty ones
 		emptyArgs := make([]reflect.Value, returnMethodNArgs)
 		for i := 0; i < returnMethodNArgs; i++ {
 			argType := returnMethodType.In(i)
 			if argType.Name() == "error" {
-				if e.Err {
-					emptyArgs[i] = reflect.ValueOf(errToReturn)
+				if e.Err != nil {
+					emptyArgs[i] = reflect.ValueOf(e.Err)
 				} else {
 					emptyArgs[i] = reflect.Zero(argType)
 				}
@@ -213,8 +203,8 @@ func (e *Expect) Expectorise(mock Mocker) {
 
 	// The Expect has specified return values: use those.
 	returns := append([]any{}, e.Return...)
-	if e.Err {
-		returns = append(returns, errToReturn)
+	if e.Err != nil {
+		returns = append(returns, e.Err)
 	} else if returnMethodIncludesErr {
 		var err error
 		returns = append(returns, err)
