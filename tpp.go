@@ -28,8 +28,10 @@ Here's a template for writing such tests:
 			t.Run(tt.name, func(t *testing.T) {
 				mock := mymocks.NewBar(t)
 				tt.getFoo.Expectorise(mock.EXPECT().GetFoo())
+
 				subject := subject.New(mock)
 				err := subject.XXX()
+
 				require.Equal(t, tt.wantErr, err != nil)
 			})
 		}
