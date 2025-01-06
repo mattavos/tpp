@@ -7,10 +7,6 @@ import (
 	"github.com/stretchr/testify/mock"
 )
 
-type mockInterface interface {
-	DoSomething(x int) bool
-}
-
 type mockImpl struct {
 	mock.Mock
 }
@@ -35,7 +31,23 @@ func TestUnexpectedWithArgumentMatcher(t *testing.T) {
 	// Create an unexpected expectation
 	unexpected := Unexpected()
 
-	// This should work now with our workaround
+	// This should work, as we safely Unset.
+	unexpected.Expectorise(call)
+
+	// Verify that the call was properly unset
+	mockObj.AssertExpectations(t)
+	assert.Empty(t, mockObj.ExpectedCalls)
+}
+
+func TestUnexpected(t *testing.T) {
+	mockObj := new(mockImpl)
+
+	call := mockObj.On("DoSomething", 42).Return(true)
+
+	// Create an unexpected expectation
+	unexpected := Unexpected()
+
+	// This should call Unset on the call
 	unexpected.Expectorise(call)
 
 	// Verify that the call was properly unset
