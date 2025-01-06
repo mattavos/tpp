@@ -8,34 +8,32 @@ package tpp
 /*
 Here's a template for writing such tests:
 
-func TestXXX(t *testing.T) {
-	for _, tt := range []struct {
-		name    string
-		getFoo  tpp.Expect
-		wantErr bool
-	}{
-		{
-			name:    "OK",
-			getFoo:  tpp.OK("foo"),
-			wantErr: false
-		},
-		{
-			name:    "ERR: getFoo",
-			getFoo:  tpp.Err(),
-			wantErr: true,
-		},
-	} {
-		t.Run(tt.name, func(t *testing.T) {
-			mock := mymocks.NewBar(t)
-			tt.getFoo.Expectorise(mock.EXPECT().GetFoo())
-
-			subject := subject.New(mock)
-			err := subject.XXX()
-
-			require.Equal(t, tt.wantErr, err != nil)
-		})
+	func TestXXX(t *testing.T) {
+		for _, tt := range []struct {
+			name    string
+			getFoo  tpp.Expect
+			wantErr bool
+		}{
+			{
+				name:    "OK",
+				getFoo:  tpp.OK("foo"),
+				wantErr: false
+			},
+			{
+				name:    "ERR: getFoo",
+				getFoo:  tpp.Err(),
+				wantErr: true,
+			},
+		} {
+			t.Run(tt.name, func(t *testing.T) {
+				mock := mymocks.NewBar(t)
+				tt.getFoo.Expectorise(mock.EXPECT().GetFoo())
+				subject := subject.New(mock)
+				err := subject.XXX()
+				require.Equal(t, tt.wantErr, err != nil)
+			})
+		}
 	}
-}
 */
 
 import (
