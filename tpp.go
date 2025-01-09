@@ -173,7 +173,7 @@ func (e *Expect) Expectorise(mock Mocker) {
 	}
 
 	if e.Expected != nil && !*e.Expected {
-		mock.Unset()
+		unsetMock(mock)
 		return
 	}
 
@@ -390,4 +390,35 @@ func toReflectValues(args []any, method reflect.Value) ([]reflect.Value, error) 
 	}
 
 	return values, nil
+}
+
+// unsetMock unsets a mock. This is necessary because testify's mock.Call.Unset()
+// does not gracefully handle the case where we have an argument matcher.
+func unsetMock(mock Mocker) {
+	if call, ok := mock.(*testifymock.Call); ok {
+		safeUnsetCall(call)
+	} else {
+		mock.Unset()
+	}
+}
+
+// safeUnsetCall safely unsets a mock call from its parent mock object.
+func safeUnsetCall(call *testifymock.Call) {
+	parent := call.Parent
+	if parent == nil {
+		return
+	}
+
+	calls := parent.ExpectedCalls
+	if calls == nil {
+		return
+	}
+
+	for i, c := range calls {
+		if c == call {
+			newCalls := append(calls[:i], calls[i+1:]...)
+			parent.ExpectedCalls = newCalls
+			break
+		}
+	}
 }
