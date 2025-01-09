@@ -395,7 +395,8 @@ func toReflectValues(args []any, method reflect.Value) ([]reflect.Value, error) 
 // unsetMock unsets a mock. This is necessary because testify's mock.Call.Unset()
 // does not gracefully handle the case where we have an argument matcher.
 func unsetMock(mock Mocker) {
-	if call, ok := mock.(*testifymock.Call); ok {
+	// mock may be a type that wraps a testify mock.Call, we can use Maybe to extract it, and then unset.
+	if call := mock.Maybe(); call != nil {
 		safeUnsetCall(call)
 	} else {
 		mock.Unset()
