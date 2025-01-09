@@ -16,7 +16,7 @@ func (m *mockImpl) DoSomething(x int) bool {
 	return args.Bool(0)
 }
 
-func TestUnexpectedWithArgumentMatcher(t *testing.T) {
+func TestUnexpected(t *testing.T) {
 	is := require.New(t)
 	mockObj := new(mockImpl)
 
@@ -25,24 +25,42 @@ func TestUnexpectedWithArgumentMatcher(t *testing.T) {
 		return x%2 == 0
 	}
 	argMatcher := mock.MatchedBy(isEven)
-	call := mockObj.On("DoSomething", argMatcher).Return(true)
 
-	unexpected := Unexpected()
-	unexpected.Expectorise(call)
+	t.Run("Unsets a call with an argument matcher", func(t *testing.T) {
+		call := mockObj.On("DoSomething", argMatcher).Return(true)
 
-	mockObj.AssertExpectations(t)
-	is.Empty(mockObj.ExpectedCalls)
-}
+		unexpected := Unexpected()
+		unexpected.Expectorise(call)
 
-func TestUnexpected(t *testing.T) {
-	is := require.New(t)
-	mockObj := new(mockImpl)
+		mockObj.AssertExpectations(t)
+		is.Empty(mockObj.ExpectedCalls)
+	})
 
-	call := mockObj.On("DoSomething", 42).Return(true)
+	t.Run("Unsets a wrapped call with an argument matcher", func(t *testing.T) {
+		call := mockObj.On("DoSomething", argMatcher).Return(true)
 
-	unexpected := Unexpected()
-	unexpected.Expectorise(call)
+		// WrappedMockCallObject is a wrapper around a mock.Call, which resembles what
+		// we get from mockery.
+		type WrappedMockCallObject struct {
+			*mock.Call
+		}
 
-	mockObj.AssertExpectations(t)
-	is.Empty(mockObj.ExpectedCalls)
+		fm := WrappedMockCallObject{call}
+
+		unexpected := Unexpected()
+		unexpected.Expectorise(fm)
+
+		mockObj.AssertExpectations(t)
+		is.Empty(mockObj.ExpectedCalls)
+	})
+
+	t.Run("Unsets a call", func(t *testing.T) {
+		call := mockObj.On("DoSomething", 42).Return(true)
+
+		unexpected := Unexpected()
+		unexpected.Expectorise(call)
+
+		mockObj.AssertExpectations(t)
+		is.Empty(mockObj.ExpectedCalls)
+	})
 }
