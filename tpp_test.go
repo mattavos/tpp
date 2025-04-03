@@ -1,6 +1,7 @@
 package tpp
 
 import (
+	"sync"
 	"testing"
 
 	"github.com/stretchr/testify/mock"
@@ -63,4 +64,48 @@ func TestUnexpected(t *testing.T) {
 		mockObj.AssertExpectations(t)
 		is.Empty(mockObj.ExpectedCalls)
 	})
+}
+
+func TestWithCallback(t *testing.T) {
+	// Create a mock object
+	mockObj := new(mockImpl)
+
+	// Create an argument matcher
+	isEven := func(x int) bool {
+		return x%2 == 0
+	}
+	argMatcher := mock.MatchedBy(isEven)
+
+	testCases := []struct {
+		name            string
+		expectSomething Expect
+	}{
+		{
+			name:            "simple callback on a method that passes",
+			expectSomething: OK(),
+		},
+	}
+
+	for _, tt := range testCases {
+		t.Run(tt.name, func(t *testing.T) {
+			call := mockObj.On("DoSomething", argMatcher)
+
+			// Create a waitgroup
+			var wg sync.WaitGroup
+			wg.Add(1)
+
+			// Set up the expectation with a callback
+			tt.expectSomething.WithCallback(wg.Done).Expectorise(call)
+
+			// Call the mock method
+			mockObj.DoSomething(42)
+
+			// Wait for the callback to be called
+			wg.Wait()
+
+			// Assert that the expectation was met
+			mockObj.AssertExpectations(t)
+		})
+	}
+
 }
