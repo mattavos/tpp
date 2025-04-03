@@ -82,7 +82,7 @@ func TestWithCallback(t *testing.T) {
 	}{
 		{
 			name:            "simple callback on a method that passes",
-			expectSomething: OK(),
+			expectSomething: OK(true),
 		},
 	}
 

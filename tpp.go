@@ -189,19 +189,9 @@ func (e *Expect) Expectorise(mock Mocker) {
 		}
 	}
 
-	runAndReturnMethod := reflect.ValueOf(mock).MethodByName("RunAndReturn")
-	if !runAndReturnMethod.IsValid() {
-		panic("given mock has no return")
-	}
-	runAndReturnMethodInputType := runAndReturnMethod.Type().In(0)
-	runAndReturnMethodNArgs := runAndReturnMethodInputType.NumOut()
-
-	runAndReturnMethodIncludesErr := false
-	for i := 0; i < runAndReturnMethodNArgs; i++ {
-		if runAndReturnMethodInputType.Out(i).Name() == "error" {
-			runAndReturnMethodIncludesErr = true
-			break
-		}
+	runMethod := reflect.ValueOf(mock).MethodByName("Run")
+	if !runMethod.IsValid() {
+		panic("given mock has no run")
 	}
 
 	if e.Expected != nil && !*e.Expected {
@@ -237,31 +227,44 @@ func (e *Expect) Expectorise(mock Mocker) {
 	returns := append([]any{}, e.Return...)
 	if e.Err != nil {
 		returns = append(returns, e.Err)
-	} else if returnMethodIncludesErr || runAndReturnMethodIncludesErr { // These should really be the same. If not, something is wrong.
+	} else if returnMethodIncludesErr {
 		var err error
 		returns = append(returns, err)
 	}
 
 	if e.Callback != nil {
-		returnsFunc := func() []any {
+		// the problem is that this function does not take the right args...
+		// the args need to be the same as those of the function being mocked.
+		// So we need to create a function which takes the right args and
+		// returns nothing
+		runFunction := func() []any {
 			e.Callback()
 			return returns
 		}
-		givenArgs0, err := toReflectValues([]any{returnsFunc}, runAndReturnMethod)
+		givenRunArgs, err := toReflectValues([]any{runFunction}, runMethod)
 		if err != nil {
-			panic(fmt.Sprintf("toReflectValues failed to transform return values: %s", err))
+			panic(
+				fmt.Sprintf(
+					"toReflectValues failed to transform return values for the run call: %s",
+					err,
+				),
+			)
 		}
 
-		runAndReturnMethod.Call(givenArgs0)
-
-	} else {
-		givenArgs, err := toReflectValues(returns, returnMethod)
-		if err != nil {
-			panic(fmt.Sprintf("toReflectValues failed to transform return values: %s", err))
-		}
-
-		returnMethod.Call(givenArgs)
+		runMethod.Call(givenRunArgs)
 	}
+
+	givenReturnArgs, err := toReflectValues(returns, returnMethod)
+	if err != nil {
+		panic(
+			fmt.Sprintf(
+				"toReflectValues failed to transform return values for the return call: %s",
+				err,
+			),
+		)
+	}
+
+	returnMethod.Call(givenReturnArgs)
 }
 
 // Call represents a single mock call. This is to be used with Expects.
