@@ -77,6 +77,9 @@ type Expect struct {
 	// If you want an error to be returned, place it in Expect.Err.
 	Return []any
 
+	// Callback is a function which will be called when the mock returns.
+	Callback func()
+
 	// Err determines the error which will be appended to the mock's returns. If
 	// it is nil, no error will be appended.
 	//
@@ -126,6 +129,20 @@ func (e *Expect) Injecting(ret any) *Expect {
 	return &Expect{
 		Expected: e.Expected,
 		Return:   append(e.Return, ret),
+		Callback: e.Callback,
+		Err:      e.Err,
+	}
+}
+
+// WithCallback returns a new Expect with the given |cb| injected into its
+// Callback.
+//
+// This is useful.
+func (e *Expect) WithCallback(cb func()) *Expect {
+	return &Expect{
+		Expected: e.Expected,
+		Return:   e.Return,
+		Callback: cb,
 		Err:      e.Err,
 	}
 }
@@ -172,6 +189,21 @@ func (e *Expect) Expectorise(mock Mocker) {
 		}
 	}
 
+	runAndReturnMethod := reflect.ValueOf(mock).MethodByName("RunAndReturn")
+	if !runAndReturnMethod.IsValid() {
+		panic("given mock has no return")
+	}
+	runAndReturnMethodInputType := runAndReturnMethod.Type().In(0)
+	runAndReturnMethodNArgs := runAndReturnMethodInputType.NumOut()
+
+	runAndReturnMethodIncludesErr := false
+	for i := 0; i < runAndReturnMethodNArgs; i++ {
+		if runAndReturnMethodInputType.Out(i).Name() == "error" {
+			runAndReturnMethodIncludesErr = true
+			break
+		}
+	}
+
 	if e.Expected != nil && !*e.Expected {
 		unsetMock(mock)
 		return
@@ -205,15 +237,31 @@ func (e *Expect) Expectorise(mock Mocker) {
 	returns := append([]any{}, e.Return...)
 	if e.Err != nil {
 		returns = append(returns, e.Err)
-	} else if returnMethodIncludesErr {
+	} else if returnMethodIncludesErr || runAndReturnMethodIncludesErr { // These should really be the same. If not, something is wrong.
 		var err error
 		returns = append(returns, err)
 	}
-	givenArgs, err := toReflectValues(returns, returnMethod)
-	if err != nil {
-		panic(fmt.Sprintf("toReflectValues failed to transform return values: %s", err))
+
+	if e.Callback != nil {
+		returnsFunc := func() []any {
+			e.Callback()
+			return returns
+		}
+		givenArgs0, err := toReflectValues([]any{returnsFunc}, runAndReturnMethod)
+		if err != nil {
+			panic(fmt.Sprintf("toReflectValues failed to transform return values: %s", err))
+		}
+
+		runAndReturnMethod.Call(givenArgs0)
+
+	} else {
+		givenArgs, err := toReflectValues(returns, returnMethod)
+		if err != nil {
+			panic(fmt.Sprintf("toReflectValues failed to transform return values: %s", err))
+		}
+
+		returnMethod.Call(givenArgs)
 	}
-	returnMethod.Call(givenArgs)
 }
 
 // Call represents a single mock call. This is to be used with Expects.
