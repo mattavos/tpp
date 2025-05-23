@@ -39,113 +39,10 @@ Here's a template for writing such tests:
 */
 
 import (
-	"fmt"
-	"reflect"
-
 	"github.com/pkg/errors"
 
 	testifymock "github.com/stretchr/testify/mock"
 )
-
-// Expect represents an expectation for use in configuration-driven tests.
-// This binds together whether a mock call should be expected, what it should
-// return, and whether it should return an error.
-type Expect struct {
-	// Expected determines whether handled mocks should be expected, where:
-	//   - true  => The mock must be called
-	//   - false => The mock must not be called
-	//   - nil   => The mock may or may not be called
-	Expected *bool
-
-	Args []any
-
-	// Return are the *non-error* returns for the mock.
-	//
-	// If you want an error to be returned, place it in Expect.Err.
-	Return []any
-
-	// Err determines the error which will be appended to the mock's returns.
-	// If it is nil, no error will be appended.
-	//
-	// This is separated out from `Return` for convenience and readability.
-	Err error
-
-	NTimes int
-}
-
-type ExpectMany []Expect
-
-func (em ExpectMany) Expectorise(mock Mocker) {
-	// TODO: WIP
-	if em == nil {
-		// TODO: add args
-		// TODO: the old vargs issue. Does reflect help? FnType IsVariadic?
-		mock.Maybe()
-		return
-	}
-	for _, e := range em {
-		e.Expectorise(mock)
-	}
-}
-
-type templateArg struct {
-}
-
-// Arg represents an argument placeholder that will be filled in when the Expect
-// is Expectorised. This is used in conjunction with tpp.Given(xxx).Return(yyy)
-// to allow for dynamic mocking.
-//
-// For example, a tpp.Expect that's set up like so:
-//
-//	expectFoo := tpp.With("foo", 1).Return(xyz)
-//
-// Should be Expectorised like this:
-//
-//	expectFoo.Expectorise(mymock.EXPECT().Foo(tpp.Arg(), tpp.Arg()))
-//
-// The "foo" and 1 will then be injected in the place of the tpp.Arg()s.
-func Arg() templateArg {
-	return templateArg{}
-}
-
-type callBuilder struct {
-	args []any
-}
-
-func Given(args ...any) *callBuilder {
-	return &callBuilder{
-		args: args,
-	}
-}
-
-func (c *callBuilder) Return(returns ...any) Expect {
-	// TODO: interesting. If the error is specified with bare "nil", then it will
-	// fail this check. That means that we'll append it to the Return. But then
-	// Expectorise will add it again...
-	// We should re-write the bit where Expectorise adds the error in separately
-
-	// Split out the last error
-	// var lastErr error
-	// lastErrIdx := -1
-	// for i, ret := range returns {
-	// 	fmt.Printf("DO_NOT_COMMIT: considering stuff\n")
-	// 	if e, ok := ret.(error); ok {
-	// 		fmt.Printf("DO_NOT_COMMIT: YOU ADDED AN ERROR. WE'RE REMOVING IT\n")
-	// 		lastErr = e
-	// 		lastErrIdx = i
-	// 	}
-	// }
-	// if lastErrIdx > -1 {
-	// 	returns = append(returns[:lastErrIdx], returns[lastErrIdx+1:]...)
-	// }
-
-	return Expect{
-		Expected: ptr(true),
-		Args:     c.args,
-		Return:   returns,
-		//Err:      lastErr,
-	}
-}
 
 // OK returns an Expect with the given return and no error.
 func OK(returns ...any) Expect {
@@ -179,6 +76,69 @@ func Unexpected() Expect {
 	}
 }
 
+func Given(args ...any) *callBuilder {
+	return &callBuilder{
+		args: args,
+	}
+}
+
+type callBuilder struct {
+	args []any
+}
+
+func (c *callBuilder) Return(returns ...any) Expect {
+	return Expect{
+		Expected: ptr(true),
+		Args:     c.args,
+		Return:   returns,
+	}
+}
+
+// Arg represents an argument placeholder that will be filled in when the Expect
+// is Expectorised. This is used in conjunction with tpp.Given(xxx).Return(yyy)
+// to allow for dynamic mocking.
+//
+// For example, a tpp.Expect that's set up like so:
+//
+//	expectFoo := tpp.With("foo", 1).Return(xyz)
+//
+// Should be Expectorised like this:
+//
+//	expectFoo.Expectorise(mymock.EXPECT().Foo(tpp.Arg(), tpp.Arg()))
+//
+// The "foo" and 1 will then be injected in the place of the tpp.Arg()s.
+func Arg() templateArg {
+	return templateArg{}
+}
+
+type templateArg struct{}
+
+// Expect represents an expectation for use in configuration-driven tests.
+// This binds together whether a mock call should be expected, what it should
+// return, and whether it should return an error.
+type Expect struct {
+	// Expected determines whether handled mocks should be expected, where:
+	//   - true  => The mock must be called
+	//   - false => The mock must not be called
+	//   - nil   => The mock may or may not be called
+	Expected *bool
+
+	Args []any
+
+	// Return are the *non-error* returns for the mock.
+	//
+	// If you want an error to be returned, place it in Expect.Err.
+	Return []any
+
+	// Err determines the error which will be appended to the mock's returns.
+	// If it is nil, no error will be appended.
+	//
+	// This is separated out from `Return` for convenience and readability.
+	Err error
+
+	NTimes int
+}
+
 // Injecting returns a new Expect with the given |ret| injected into its Return.
 //
 // This is useful in cases where the test case itself does not care about the
@@ -207,6 +167,7 @@ func (e Expect) Once() Expect {
 type Mocker interface {
 	Maybe() *testifymock.Call
 	Unset() *testifymock.Call
+	Times(int) *testifymock.Call
 
 	// We can't specify Return() because different mocks have different returns.
 }
@@ -235,27 +196,6 @@ func WithDefaultReturns() {
 // Expect.Return. If Expect.Err is also set, Expectorise will append a non-nil
 // error to the returned values.
 func (e *Expect) Expectorise(mock Mocker) {
-	// TODO: instead of piecemeal reflecting, we should have one func which uses
-	// reflect to serialise our mock into some typed thing which we can use
-	// thereafter.
-
-	// Because the type of "Return" depends on the thing being mocked, we have to
-	// dynamically get it with reflection...
-	returnMethod := reflect.ValueOf(mock).MethodByName("Return")
-	if !returnMethod.IsValid() {
-		panic("given mock has no return")
-	}
-	returnMethodType := returnMethod.Type()
-	returnMethodNArgs := returnMethodType.NumIn()
-
-	returnMethodIncludesErr := false
-	for i := 0; i < returnMethodNArgs; i++ {
-		if returnMethodType.In(i).Name() == "error" {
-			returnMethodIncludesErr = true
-			break
-		}
-	}
-
 	if e.Expected != nil && !*e.Expected {
 		unsetMock(mock)
 		return
@@ -265,112 +205,63 @@ func (e *Expect) Expectorise(mock Mocker) {
 		mock.Maybe()
 	}
 
+	if e.NTimes > 0 {
+		mock.Times(e.NTimes)
+	}
+
+	rmock, err := newReflectedMockCall(mock)
+	if err != nil {
+		panic(err)
+	}
+
 	if e.Expected != nil && *e.Expected {
 		// Replace any args that have been specified with tpp.Arg() with the args
 		// specified on the Expect.
-		args, ok := getArgumentsField(mock)
-		if !ok {
-			panic("failed to get mock.Arguments")
+		args, err := rmock.GetArguments()
+		if err != nil {
+			panic(err)
 		}
-		var arguments []any
+		var newargs []any
 		var idx int
 		for _, arg := range args {
 			if _, ok := arg.(templateArg); ok {
 				if idx >= len(e.Args) {
-					// TODO: had to add a check here because if we just use tpp.Err
-					// we don't bother specifying the args and then we won't have them to copy here
-					arguments = append(arguments, testifymock.Anything)
+					// We've ran out of args: this happens if we specified an error in the
+					// Expect and the test still put a placeholder in. All good.
+					newargs = append(newargs, testifymock.Anything)
 				} else {
-					arguments = append(arguments, e.Args[idx])
+					newargs = append(newargs, e.Args[idx])
 					idx++
 				}
 			} else {
-				arguments = append(arguments, arg)
+				newargs = append(newargs, arg)
 			}
 		}
-		ok = setArgumentsField(mock, arguments)
-		if !ok {
-			panic("failed to set mock.Arguments")
-		}
+		rmock.SetArguments(newargs)
 	}
-
-	// TODO: If NTimes is set on expect, add Times(n) to the mock
 
 	if e.Return == nil {
-		// The Expect hasn't specified the return values, so construct empty ones
-		emptyArgs := make([]reflect.Value, returnMethodNArgs)
-		for i := 0; i < returnMethodNArgs; i++ {
-			argType := returnMethodType.In(i)
-			if argType.Name() == "error" {
-				if e.Err != nil {
-					emptyArgs[i] = reflect.ValueOf(e.Err)
-				} else {
-					emptyArgs[i] = reflect.Zero(argType)
-				}
-			} else {
-				zeroValue := reflect.Zero(argType)
-				emptyArgs[i] = zeroValue
-			}
-		}
-		returnMethod.Call(emptyArgs)
-		return
+		rmock.CallReturnEmpty(e.Err)
+	} else {
+		rmock.CallReturn(e.Return, e.Err)
 	}
-
-	// The Expect has specified return values: use those.
-	returns := append([]any{}, e.Return...)
-
-	if len(returns) != returnMethodNArgs {
-		if e.Err != nil {
-			returns = append(returns, e.Err)
-		} else if returnMethodIncludesErr {
-			var err error
-			returns = append(returns, err)
-		}
-	}
-
-	givenArgs, err := toReflectValues(returns, returnMethod)
-	if err != nil {
-		panic(fmt.Sprintf("toReflectValues failed to transform return values: %s", err))
-	}
-	returnMethod.Call(givenArgs)
 }
 
-// toReflectValues transforms the |args| of the |method| from `[]any` to
-// `[]reflect.Value`.
-func toReflectValues(args []any, method reflect.Value) ([]reflect.Value, error) {
-	methodType := method.Type()
+type ExpectMany []Expect
 
-	if len(args) != methodType.NumIn() {
-		return nil, fmt.Errorf(
-			"mismatched number of args: expected %d but got %d",
-			methodType.NumIn(),
-			len(args),
-		)
-	}
-
-	values := make([]reflect.Value, len(args))
-
-	for i, arg := range args {
-		argType := methodType.In(i)
-
-		if arg != nil {
-			values[i] = reflect.ValueOf(arg)
-		} else {
-			switch argType.Kind() {
-			case reflect.Interface:
-				values[i] = reflect.Zero(argType)
-			case reflect.Ptr:
-				values[i] = reflect.New(argType.Elem()).Elem()
-			default:
-				return nil, fmt.Errorf(
-					"cannot handle nil for non-interface or non-pointer type: %s",
-					argType,
-				)
-			}
+func (em ExpectMany) Expectorise(mock Mocker) {
+	if em == nil {
+		mock.Maybe()
+		rmock, err := newReflectedMockCall(mock)
+		if err != nil {
+			panic(err)
 		}
+		rmock.CallReturnEmpty(nil)
+		return
 	}
-
-	return values, nil
+	for _, e := range em {
+		e.Expectorise(mock)
+	}
 }
 
 // unsetMock unsets a mock. This is necessary because testify's mock.Call.Unset()
@@ -403,58 +294,6 @@ func safeUnsetCall(call *testifymock.Call) {
 			break
 		}
 	}
-}
-
-// getArgumentsField returns mock.Arguments. Yuck.
-func getArgumentsField(obj any) ([]any, bool) {
-	v := reflect.ValueOf(obj)
-
-	if v.Kind() == reflect.Ptr {
-		v = v.Elem()
-	}
-
-	if v.Kind() != reflect.Struct {
-		// Must be a struct to access fields
-		return nil, false
-	}
-
-	field := v.FieldByName("Arguments")
-	if !field.IsValid() || field.Kind() != reflect.Slice {
-		return nil, false
-	}
-
-	result := make([]any, field.Len())
-	for i := 0; i < field.Len(); i++ {
-		result[i] = field.Index(i).Interface()
-	}
-
-	return result, true
-}
-
-// setArgumentsField sets the mock.Arguments. Yuck.
-func setArgumentsField(obj any, args []any) bool {
-	v := reflect.ValueOf(obj)
-
-	if v.Kind() != reflect.Ptr || v.Elem().Kind() != reflect.Struct {
-		// Must be a pointer to struct
-		return false
-	}
-
-	v = v.Elem()
-	field := v.FieldByName("Arguments")
-	if !field.IsValid() || !field.CanSet() {
-		return false
-	}
-
-	sliceType := field.Type()
-	newSlice := reflect.MakeSlice(sliceType, len(args), len(args))
-
-	for i, a := range args {
-		newSlice.Index(i).Set(reflect.ValueOf(a))
-	}
-
-	field.Set(newSlice)
-	return true
 }
 
 var errTest = errors.New("TEST ERROR")

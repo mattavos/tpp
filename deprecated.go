@@ -120,7 +120,7 @@ func configureMockCall(
 	returns []any,
 	opts configureMockCallOpts,
 ) error {
-	inputArgs, err := toReflectValues(args, fn)
+	inputArgs, err := toReflectValuesDeprecated(args, fn)
 	if err != nil {
 		return fmt.Errorf("toReflectValues failed: %s", err.Error())
 	}
@@ -156,4 +156,42 @@ func configureMockCall(
 		maybeMethod.Call(nil)
 	}
 	return nil
+}
+
+// toReflectValuesDeprecated transforms the |args| of the |method| from `[]any` to
+// `[]reflect.Value`.
+func toReflectValuesDeprecated(args []any, method reflect.Value) ([]reflect.Value, error) {
+	methodType := method.Type()
+
+	if len(args) != methodType.NumIn() {
+		return nil, fmt.Errorf(
+			"mismatched number of args: expected %d but got %d",
+			methodType.NumIn(),
+			len(args),
+		)
+	}
+
+	values := make([]reflect.Value, len(args))
+
+	for i, arg := range args {
+		argType := methodType.In(i)
+
+		if arg != nil {
+			values[i] = reflect.ValueOf(arg)
+		} else {
+			switch argType.Kind() {
+			case reflect.Interface:
+				values[i] = reflect.Zero(argType)
+			case reflect.Ptr:
+				values[i] = reflect.New(argType.Elem()).Elem()
+			default:
+				return nil, fmt.Errorf(
+					"cannot handle nil for non-interface or non-pointer type: %s",
+					argType,
+				)
+			}
+		}
+	}
+
+	return values, nil
 }
