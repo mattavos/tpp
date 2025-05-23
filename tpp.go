@@ -195,12 +195,12 @@ func (e *Expect) Injecting(ret any) *Expect {
 
 func (e Expect) Times(n int) Expect {
 	e.NTimes = n
-	return *(&e)
+	return e
 }
 
 func (e Expect) Once() Expect {
 	e.NTimes = 1
-	return *(&e)
+	return e
 }
 
 // Mocker represents a Mockery mock.
