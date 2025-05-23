@@ -96,18 +96,13 @@ type templateArg struct {
 // to allow for dynamic mocking.
 //
 // For example, a tpp.Expect that's set up like so:
-
-// ```
 //
 //	expectFoo := tpp.With("foo", 1).Return(xyz)
 //
-// ```
 // Should be Expectorised like this:
-// ```
 //
 //	expectFoo.Expectorise(mymock.EXPECT().Foo(tpp.Arg(), tpp.Arg()))
 //
-// ```
 // The "foo" and 1 will then be injected in the place of the tpp.Arg()s.
 func Arg() templateArg {
 	return templateArg{}
