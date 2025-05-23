@@ -123,6 +123,9 @@ type Expect struct {
 	//   - nil   => The mock may or may not be called
 	Expected *bool
 
+	// Args are the arguments the handled mock should expect. These will only be
+	// added to the mock call if its arguments are specified as tpp.Arg().
+	// See tpp.Arg() for more info.
 	Args []any
 
 	// Return are the *non-error* returns for the mock.
@@ -136,6 +139,8 @@ type Expect struct {
 	// This is separated out from `Return` for convenience and readability.
 	Err error
 
+	// NTimes indicates that the mock should only return the indicated number
+	// of times.
 	NTimes int
 }
 
@@ -153,15 +158,22 @@ func (e *Expect) Injecting(ret any) *Expect {
 	}
 }
 
+// Times indicates that the mock should only return the indicated number of times.
+// of times.
 func (e Expect) Times(n int) Expect {
 	e.NTimes = n
 	return e
 }
 
+// Once indicates that the mock should only return once.
 func (e Expect) Once() Expect {
-	e.NTimes = 1
-	return e
+	return e.Times(1)
 }
+
+// TODO: Dave Cheney style Option for things like default returns
+//
+//func WithDefaultReturns() func(*option) {
+//}
 
 // Mocker represents a Mockery mock.
 type Mocker interface {
@@ -170,17 +182,14 @@ type Mocker interface {
 	Times(int) *testifymock.Call
 
 	// We can't specify Return() because different mocks have different returns.
+	// Instead, we use reflection. See reflect.go.
 }
 
-// TODO: Dave Cheney style Option for things like defaults
-func WithDefaultReturns() {
-}
-
-// Expectorise configures the given |mock| according to the behaviour specified
+// Expectorise configures the given mock according to the behaviour specified
 // in the Expect.
 //
-// I.e., whether it should be expected to be called, its return values, and
-// whether it should return an error. This is to remove boilerplate code.
+// I.e., whether it should be expected to be called, its args (if specified,
+// its return values, and whether it should return an error.
 //
 // Iff any of the arguments to the mock are tpp.Arg(), they will be replaced by
 // the arguments in Expect.Args.
@@ -188,11 +197,11 @@ func WithDefaultReturns() {
 // If Expect.Expected is true the mock must be called. If false, the mock must
 // not be called. If nil, the mock may be called.
 //
-// If Expect.Return is nil, Expectorise will configure the |mock| to return
+// If Expect.Return is nil, Expectorise will configure the mock to return
 // zero values of the returned types. If Expect.Err is set, Expectorise will
 // ensure that one of these zero values is set to a non-nil error.
 //
-// If Expect.Return is non-nil, Expectorise will configure the |mock| to return
+// If Expect.Return is non-nil, Expectorise will configure the mock to return
 // Expect.Return. If Expect.Err is also set, Expectorise will append a non-nil
 // error to the returned values.
 func (e *Expect) Expectorise(mock Mocker) {
@@ -209,6 +218,12 @@ func (e *Expect) Expectorise(mock Mocker) {
 		mock.Times(e.NTimes)
 	}
 
+	// TODO: because of lack of type safety, people are going to both:
+	//   (a) pass in the wrong number of arguments/returns, and
+	//   (b) pass in the wrong type of arguments/returns
+	// especially due to refactoring code. We need to make sure that the
+	// errors one gets back in these two cases are exeptionally helpful.
+
 	rmock, err := newReflectedMockCall(mock)
 	if err != nil {
 		panic(err)
@@ -221,6 +236,10 @@ func (e *Expect) Expectorise(mock Mocker) {
 		if err != nil {
 			panic(err)
 		}
+
+		// TODO: panic with a helpful message if e.Args is set but none
+		// of the rmock arguments are templateArgs. This is a mistake!
+
 		var newargs []any
 		var idx int
 		for _, arg := range args {
