@@ -41,26 +41,11 @@ Here's a template for writing such tests:
 import (
 	"fmt"
 	"reflect"
-	"testing"
 
 	"github.com/pkg/errors"
 
 	testifymock "github.com/stretchr/testify/mock"
 )
-
-var errTest = errors.New("TEST ERROR")
-
-// True returns a ptr to true. Tri-state bools, baby!
-func True() *bool {
-	v := true
-	return &v
-}
-
-// False returns a ptr to false. Tri-state bools, baby!
-func False() *bool {
-	v := false
-	return &v
-}
 
 // Expect represents an expectation for use in configuration-driven tests.
 // This binds together whether a mock call should be expected, what it should
@@ -79,8 +64,8 @@ type Expect struct {
 	// If you want an error to be returned, place it in Expect.Err.
 	Return []any
 
-	// Err determines the error which will be appended to the mock's returns. If
-	// it is nil, no error will be appended.
+	// Err determines the error which will be appended to the mock's returns.
+	// If it is nil, no error will be appended.
 	//
 	// This is separated out from `Return` for convenience and readability.
 	Err error
@@ -106,6 +91,24 @@ func (em ExpectMany) Expectorise(mock Mocker) {
 type templateArg struct {
 }
 
+// Arg represents an argument placeholder that will be filled in when the Expect
+// is Expectorised. This is used in conjunction with tpp.Given(xxx).Return(yyy)
+// to allow for dynamic mocking.
+//
+// For example, a tpp.Expect that's set up like so:
+
+// ```
+//
+//	expectFoo := tpp.With("foo", 1).Return(xyz)
+//
+// ```
+// Should be Expectorised like this:
+// ```
+//
+//	expectFoo.Expectorise(mymock.EXPECT().Foo(tpp.Arg(), tpp.Arg()))
+//
+// ```
+// The "foo" and 1 will then be injected in the place of the tpp.Arg()s.
 func Arg() templateArg {
 	return templateArg{}
 }
@@ -142,7 +145,7 @@ func (c *callBuilder) Return(returns ...any) Expect {
 	// }
 
 	return Expect{
-		Expected: True(),
+		Expected: ptr(true),
 		Args:     c.args,
 		Return:   returns,
 		//Err:      lastErr,
@@ -152,7 +155,7 @@ func (c *callBuilder) Return(returns ...any) Expect {
 // OK returns an Expect with the given return and no error.
 func OK(returns ...any) Expect {
 	return Expect{
-		Expected: True(),
+		Expected: ptr(true),
 		Return:   returns,
 		Err:      nil,
 	}
@@ -161,7 +164,7 @@ func OK(returns ...any) Expect {
 // Err returns an Expect with a generic test error.
 func Err() Expect {
 	return Expect{
-		Expected: True(),
+		Expected: ptr(true),
 		Err:      errTest,
 	}
 }
@@ -169,7 +172,7 @@ func Err() Expect {
 // ErrWith returns an Expect with the given error.
 func ErrWith(e error) Expect {
 	return Expect{
-		Expected: True(),
+		Expected: ptr(true),
 		Err:      e,
 	}
 }
@@ -177,7 +180,7 @@ func ErrWith(e error) Expect {
 // Unexpected returns an Expect which is unexpected.
 func Unexpected() Expect {
 	return Expect{
-		Expected: False(),
+		Expected: ptr(false),
 	}
 }
 
@@ -337,144 +340,6 @@ func (e *Expect) Expectorise(mock Mocker) {
 	returnMethod.Call(givenArgs)
 }
 
-// Call represents a single mock call. This is to be used with Expects.
-type Call struct {
-	Given  []any
-	Return []any
-}
-
-// Expects represents an expectation for use in configuration-driven tests.
-// This binds together whether a set of mock calls should be expected, what
-// they should return, and whether they should return an error.
-type Expects struct {
-	Expected *bool
-	Calls    []Call
-	err      bool
-}
-
-// Unexpecteds returns an Expects which is unexpected.
-func Unexpecteds() Expects {
-	return Expects{
-		Expected: False(),
-	}
-}
-
-// OKs returns an Expects with the given calls.
-func OKs(calls []Call) Expects {
-	return Expects{
-		Expected: True(),
-		Calls:    calls,
-	}
-}
-
-// Errs returns an Expects with a generic test error.
-func Errs() Expects {
-	return Expects{
-		Expected: True(),
-		err:      true,
-	}
-}
-
-// Expectorise configures the given |mockFunc| according to the behaviour
-// specified in the Expects.
-//
-// If Expects.Expected is false, nothing will be done.
-//
-// If Expects.Expected is nil, Expectorise will configure the mock func to be
-// Maybe() called with mock.Anything args and return the given |defaultReturns|.
-// If an Expects.Error is also specified, an error will be returned.
-//
-// If Expects.Expected is true and Expects.Calls is non-empty, Expectorise will
-// configure the mock func to be called with the Expect.Calls arguments and to
-// return the Expect.Calls returns.
-func (e *Expects) Expectorise(t *testing.T, mockFunc any, defaultReturns []any) {
-	if e.Expected != nil && !*e.Expected {
-		// Nothing is expected; nothing to set up.
-		return
-	}
-
-	fn := reflect.ValueOf(mockFunc)
-	if fn.Kind() != reflect.Func {
-		t.Fatalf("mockFunc is not a func")
-		return
-	}
-
-	if e.Expected == nil || e.Calls == nil || len(e.Calls) == 0 {
-		// Set up a default call, injecting an error one is specified
-		args := make([]any, 0, fn.Type().NumIn())
-		for i := 0; i < fn.Type().NumIn(); i++ {
-			args = append(args, testifymock.Anything)
-		}
-		err := configureMockCall(
-			fn,
-			args,
-			defaultReturns,
-			configureMockCallOpts{setReturnMaybe: true, injectErrReturn: e.err},
-		)
-		if err != nil {
-			t.Fatal(err)
-		}
-		return
-	}
-
-	// Set up the provided calls
-	for _, call := range e.Calls {
-		err := configureMockCall(fn, call.Given, call.Return, configureMockCallOpts{})
-		if err != nil {
-			t.Fatal(err)
-		}
-	}
-}
-
-type configureMockCallOpts struct {
-	setReturnMaybe  bool
-	injectErrReturn bool
-}
-
-func configureMockCall(
-	fn reflect.Value,
-	args []any,
-	returns []any,
-	opts configureMockCallOpts,
-) error {
-	inputArgs, err := toReflectValues(args, fn)
-	if err != nil {
-		return fmt.Errorf("toReflectValues failed: %s", err.Error())
-	}
-
-	expectCall := fn.Call(inputArgs)
-	if len(expectCall) == 0 {
-		return fmt.Errorf("calling mockFunc did not return a valid Call object")
-	}
-
-	returnMethod := expectCall[0].MethodByName("Return")
-	if !returnMethod.IsValid() {
-		return fmt.Errorf("mock.Call does not have a Return method")
-	}
-
-	returnArgs := make([]reflect.Value, len(returns))
-	for i, ret := range returns {
-		if opts.injectErrReturn && returnMethod.Type().In(i).Name() == "error" {
-			returnArgs[i] = reflect.ValueOf(errTest)
-		} else if ret == nil {
-			returnArgs[i] = reflect.Zero(returnMethod.Type().In(i))
-		} else {
-			returnArgs[i] = reflect.ValueOf(ret)
-		}
-	}
-
-	returnMethod.Call(returnArgs)
-
-	if opts.setReturnMaybe {
-		maybeMethod := expectCall[0].MethodByName("Maybe")
-		if !maybeMethod.IsValid() {
-			return fmt.Errorf("mock.Call does not have a Maybe method")
-		}
-		maybeMethod.Call(nil)
-	}
-	return nil
-}
-
 // toReflectValues transforms the |args| of the |method| from `[]any` to
 // `[]reflect.Value`.
 func toReflectValues(args []any, method reflect.Value) ([]reflect.Value, error) {
@@ -595,4 +460,10 @@ func setArgumentsField(obj any, args []any) bool {
 
 	field.Set(newSlice)
 	return true
+}
+
+var errTest = errors.New("TEST ERROR")
+
+func ptr[T any](t T) *T {
+	return &t
 }
