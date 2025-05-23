@@ -1,5 +1,5 @@
 // t++ (t plus plus)
-//
+
 // This package has some generic helpers to facilitate writing configuration
 // driven tests. These are where one single meta-test is written which is then
 // configured by a passed in struct, which defines the actual test behaviour.
@@ -72,6 +72,8 @@ type Expect struct {
 	//   - nil   => The mock may or may not be called
 	Expected *bool
 
+	Args []any
+
 	// Return are the *non-error* returns for the mock.
 	//
 	// If you want an error to be returned, place it in Expect.Err.
@@ -82,6 +84,69 @@ type Expect struct {
 	//
 	// This is separated out from `Return` for convenience and readability.
 	Err error
+
+	NTimes int
+}
+
+type ExpectMany []Expect
+
+func (em ExpectMany) Expectorise(mock Mocker) {
+	// TODO: WIP
+	if em == nil {
+		// TODO: add args
+		// TODO: the old vargs issue. Does reflect help? FnType IsVariadic?
+		mock.Maybe()
+		return
+	}
+	for _, e := range em {
+		e.Expectorise(mock)
+	}
+}
+
+type templateArg struct {
+}
+
+func Arg() templateArg {
+	return templateArg{}
+}
+
+type callBuilder struct {
+	args []any
+}
+
+func Given(args ...any) *callBuilder {
+	return &callBuilder{
+		args: args,
+	}
+}
+
+func (c *callBuilder) Return(returns ...any) Expect {
+	// TODO: interesting. If the error is specified with bare "nil", then it will
+	// fail this check. That means that we'll append it to the Return. But then
+	// Expectorise will add it again...
+	// We should re-write the bit where Expectorise adds the error in separately
+
+	// Split out the last error
+	// var lastErr error
+	// lastErrIdx := -1
+	// for i, ret := range returns {
+	// 	fmt.Printf("DO_NOT_COMMIT: considering stuff\n")
+	// 	if e, ok := ret.(error); ok {
+	// 		fmt.Printf("DO_NOT_COMMIT: YOU ADDED AN ERROR. WE'RE REMOVING IT\n")
+	// 		lastErr = e
+	// 		lastErrIdx = i
+	// 	}
+	// }
+	// if lastErrIdx > -1 {
+	// 	returns = append(returns[:lastErrIdx], returns[lastErrIdx+1:]...)
+	// }
+
+	return Expect{
+		Expected: True(),
+		Args:     c.args,
+		Return:   returns,
+		//Err:      lastErr,
+	}
 }
 
 // OK returns an Expect with the given return and no error.
@@ -130,6 +195,16 @@ func (e *Expect) Injecting(ret any) *Expect {
 	}
 }
 
+func (e Expect) Times(n int) Expect {
+	e.NTimes = n
+	return *(&e)
+}
+
+func (e Expect) Once() Expect {
+	e.NTimes = 1
+	return *(&e)
+}
+
 // Mocker represents a Mockery mock.
 type Mocker interface {
 	Maybe() *testifymock.Call
@@ -138,11 +213,18 @@ type Mocker interface {
 	// We can't specify Return() because different mocks have different returns.
 }
 
+// TODO: Dave Cheney style Option for things like defaults
+func WithDefaultReturns() {
+}
+
 // Expectorise configures the given |mock| according to the behaviour specified
 // in the Expect.
 //
 // I.e., whether it should be expected to be called, its return values, and
 // whether it should return an error. This is to remove boilerplate code.
+//
+// Iff any of the arguments to the mock are tpp.Arg(), they will be replaced by
+// the arguments in Expect.Args.
 //
 // If Expect.Expected is true the mock must be called. If false, the mock must
 // not be called. If nil, the mock may be called.
@@ -155,6 +237,10 @@ type Mocker interface {
 // Expect.Return. If Expect.Err is also set, Expectorise will append a non-nil
 // error to the returned values.
 func (e *Expect) Expectorise(mock Mocker) {
+	// TODO: instead of piecemeal reflecting, we should have one func which uses
+	// reflect to serialise our mock into some typed thing which we can use
+	// thereafter.
+
 	// Because the type of "Return" depends on the thing being mocked, we have to
 	// dynamically get it with reflection...
 	returnMethod := reflect.ValueOf(mock).MethodByName("Return")
@@ -181,6 +267,37 @@ func (e *Expect) Expectorise(mock Mocker) {
 		mock.Maybe()
 	}
 
+	if e.Expected != nil && *e.Expected {
+		// Replace any args that have been specified with tpp.Arg() with the args
+		// specified on the Expect.
+		args, ok := getArgumentsField(mock)
+		if !ok {
+			panic("failed to get mock.Arguments")
+		}
+		var arguments []any
+		var idx int
+		for _, arg := range args {
+			if _, ok := arg.(templateArg); ok {
+				if idx >= len(e.Args) {
+					// TODO: had to add a check here because if we just use tpp.Err
+					// we don't bother specifying the args and then we won't have them to copy here
+					arguments = append(arguments, testifymock.Anything)
+				} else {
+					arguments = append(arguments, e.Args[idx])
+					idx++
+				}
+			} else {
+				arguments = append(arguments, arg)
+			}
+		}
+		ok = setArgumentsField(mock, arguments)
+		if !ok {
+			panic("failed to set mock.Arguments")
+		}
+	}
+
+	// TODO: If NTimes is set on expect, add Times(n) to the mock
+
 	if e.Return == nil {
 		// The Expect hasn't specified the return values, so construct empty ones
 		emptyArgs := make([]reflect.Value, returnMethodNArgs)
@@ -203,12 +320,16 @@ func (e *Expect) Expectorise(mock Mocker) {
 
 	// The Expect has specified return values: use those.
 	returns := append([]any{}, e.Return...)
-	if e.Err != nil {
-		returns = append(returns, e.Err)
-	} else if returnMethodIncludesErr {
-		var err error
-		returns = append(returns, err)
+
+	if len(returns) != returnMethodNArgs {
+		if e.Err != nil {
+			returns = append(returns, e.Err)
+		} else if returnMethodIncludesErr {
+			var err error
+			returns = append(returns, err)
+		}
 	}
+
 	givenArgs, err := toReflectValues(returns, returnMethod)
 	if err != nil {
 		panic(fmt.Sprintf("toReflectValues failed to transform return values: %s", err))
@@ -422,4 +543,56 @@ func safeUnsetCall(call *testifymock.Call) {
 			break
 		}
 	}
+}
+
+// getArgumentsField returns mock.Arguments. Yuck.
+func getArgumentsField(obj any) ([]any, bool) {
+	v := reflect.ValueOf(obj)
+
+	if v.Kind() == reflect.Ptr {
+		v = v.Elem()
+	}
+
+	if v.Kind() != reflect.Struct {
+		// Must be a struct to access fields
+		return nil, false
+	}
+
+	field := v.FieldByName("Arguments")
+	if !field.IsValid() || field.Kind() != reflect.Slice {
+		return nil, false
+	}
+
+	result := make([]any, field.Len())
+	for i := 0; i < field.Len(); i++ {
+		result[i] = field.Index(i).Interface()
+	}
+
+	return result, true
+}
+
+// setArgumentsField sets the mock.Arguments. Yuck.
+func setArgumentsField(obj any, args []any) bool {
+	v := reflect.ValueOf(obj)
+
+	if v.Kind() != reflect.Ptr || v.Elem().Kind() != reflect.Struct {
+		// Must be a pointer to struct
+		return false
+	}
+
+	v = v.Elem()
+	field := v.FieldByName("Arguments")
+	if !field.IsValid() || !field.CanSet() {
+		return false
+	}
+
+	sliceType := field.Type()
+	newSlice := reflect.MakeSlice(sliceType, len(args), len(args))
+
+	for i, a := range args {
+		newSlice.Index(i).Set(reflect.ValueOf(a))
+	}
+
+	field.Set(newSlice)
+	return true
 }
