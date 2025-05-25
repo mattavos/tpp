@@ -44,13 +44,21 @@ import (
 	testifymock "github.com/stretchr/testify/mock"
 )
 
-// OK returns an Expect with the given return and no error.
-func OK(returns ...any) Expect {
+// Return returns an Expect with the given return values.
+func Return(returns ...any) Expect {
 	return Expect{
 		Expected: ptr(true),
 		Return:   returns,
 		Err:      nil,
 	}
+}
+
+// OK returns an Expect with the given return and no error.
+//
+// TODO: think about how this fits in now that we have to handle
+// Given(xxx).Return(yyy). Is it just equivalent?
+func OK(returns ...any) Expect {
+	return Return(returns...)
 }
 
 // Err returns an Expect with a generic test error.
@@ -262,7 +270,10 @@ func (e *Expect) Expectorise(mock Mocker) {
 	if e.Return == nil {
 		rmock.CallReturnEmpty(e.Err)
 	} else {
-		rmock.CallReturn(e.Return, e.Err)
+		err := rmock.CallReturn(e.Return, e.Err)
+		if err != nil {
+			panic(err)
+		}
 	}
 }
 

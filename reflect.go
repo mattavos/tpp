@@ -40,7 +40,8 @@ func newReflectedMockCall(mock Mocker) (*reflectedMockCall, error) {
 	}
 
 	// Extract and validate Return
-	ret := mockval.MethodByName("Return")
+	//ret := mockval.MethodByName("Return")
+	ret := reflect.ValueOf(mock).MethodByName("Return")
 	if !ret.IsValid() {
 		return nil, errors.New("given mock has no Return method")
 	}
@@ -75,17 +76,21 @@ func (rm *reflectedMockCall) CallReturnEmpty(retErr error) {
 	var (
 		returnType = rm.returnMethod.Type()
 		returnLen  = returnType.NumIn()
-		emptyArgs  = make([]reflect.Value, returnLen)
+		emptyArgs  = make([]reflect.Value, 0)
 	)
 
 	for i := 0; i < returnLen; i++ {
 		argType := returnType.In(i)
 
-		if argType.Name() == "error" && retErr != nil {
+		if retErr != nil && (argType.Name() == "error" || argType.Name() == "") {
 			// We were given an error to return -- use it!
-			emptyArgs[i] = reflect.ValueOf(retErr)
-		} else {
-			emptyArgs[i] = reflect.Zero(argType)
+			// Note we match on "error" and "" here because if a bare testifymock.Call
+			// has been passed to us, we won't have type information. We don't usually
+			// add a return in that case (see below), but here the user has set an err
+			// so we do what they ask.
+			emptyArgs = append(emptyArgs, reflect.ValueOf(retErr))
+		} else if argType.Name() != "" {
+			emptyArgs = append(emptyArgs, reflect.Zero(argType))
 		}
 	}
 
@@ -98,21 +103,22 @@ func (rm *reflectedMockCall) CallReturn(args []any, retErr error) error {
 
 	returnArgs := append([]any{}, args...)
 
-	if len(returnArgs) != returnLen {
-		if retErr != nil {
-			// We were given an error to return -- use it!
-			returnArgs = append(returnArgs, retErr)
-		} else {
-			// Add a nil error, if applicable
-			for i := 0; i < returnLen; i++ {
-				if returnType.In(i).Name() == "error" {
-					var emptyErr error
-					returnArgs = append(returnArgs, emptyErr)
-					break
-				}
+	if retErr != nil {
+		// We were given an error to return -- use it!
+		returnArgs = append(returnArgs, retErr)
+	} else {
+		// Add a nil error, if applicable
+		for i := len(args); i < returnLen; i++ {
+			if returnType.In(i).Name() == "error" {
+				var emptyErr error
+				returnArgs = append(returnArgs, emptyErr)
+				break
 			}
 		}
 	}
+
+	// TODO: some check here that the correct number and type of
+	// arguments have been passed in
 
 	rargs, err := toReflectValues(returnArgs, returnType)
 	if err != nil {
@@ -126,7 +132,7 @@ func (rm *reflectedMockCall) CallReturn(args []any, retErr error) error {
 // toReflectValues transforms the |args| of the |method| from `[]any` to
 // `[]reflect.Value`.
 func toReflectValues(args []any, typ reflect.Type) ([]reflect.Value, error) {
-	if len(args) != typ.NumIn() {
+	if len(args) != typ.NumIn() && !typ.IsVariadic() {
 		return nil, fmt.Errorf(
 			"mismatched number of args: expected %d but got %d",
 			typ.NumIn(),
@@ -137,7 +143,7 @@ func toReflectValues(args []any, typ reflect.Type) ([]reflect.Value, error) {
 	values := make([]reflect.Value, len(args))
 
 	for i, arg := range args {
-		argType := typ.In(i)
+		argType := typ.In(min(i, typ.NumIn()-1))
 
 		if arg != nil {
 			values[i] = reflect.ValueOf(arg)
@@ -157,4 +163,11 @@ func toReflectValues(args []any, typ reflect.Type) ([]reflect.Value, error) {
 	}
 
 	return values, nil
+}
+
+func min(a, b int) int {
+	if a < b {
+		return a
+	}
+	return b
 }
