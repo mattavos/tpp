@@ -278,7 +278,7 @@ func (e *Expect) Expectorise(mock MockCall) {
 }
 
 // ExpectoriseMulti configures the given mock calls according to the behaviour
-// specified in the Expect.
+// specified in the []Expect.
 //
 // The callFn will be called once for each Expect in the given []Expect.
 // This enables multiple mock calls to be configured.
