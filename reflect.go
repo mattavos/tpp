@@ -12,7 +12,7 @@ type reflectedMockCall struct {
 	returnMethod reflect.Value
 }
 
-func newReflectedMockCall(mock Mocker) (*reflectedMockCall, error) {
+func newReflectedMockCall(mock MockCall) (*reflectedMockCall, error) {
 	// Validate mock
 	mockval := reflect.ValueOf(mock)
 

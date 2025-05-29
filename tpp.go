@@ -180,11 +180,11 @@ func (e Expect) Once() Expect {
 
 // TODO: Dave Cheney style Option for things like default returns
 //
-//func WithDefaultReturns() func(*option) {
+//func WithDefaultReturn() func(*option) {
 //}
 
-// Mocker represents a Mockery mock.
-type Mocker interface {
+// MockCall represents a Mockery mock.
+type MockCall interface {
 	Maybe() *testifymock.Call
 	Unset() *testifymock.Call
 	Times(int) *testifymock.Call
@@ -193,8 +193,8 @@ type Mocker interface {
 	// Instead, we use reflection. See reflect.go.
 }
 
-// Expectorise configures the given mock according to the behaviour specified
-// in the Expect.
+// Expectorise configures the given mock call according to the behaviour
+// specified in the Expect.
 //
 // I.e., whether it should be expected to be called, its args (if specified,
 // its return values, and whether it should return an error.
@@ -212,7 +212,7 @@ type Mocker interface {
 // If Expect.Return is non-nil, Expectorise will configure the mock to return
 // Expect.Return. If Expect.Err is also set, Expectorise will append a non-nil
 // error to the returned values.
-func (e *Expect) Expectorise(mock Mocker) {
+func (e *Expect) Expectorise(mock MockCall) {
 	if e.Expected != nil && !*e.Expected {
 		unsetMock(mock)
 		return
@@ -277,26 +277,48 @@ func (e *Expect) Expectorise(mock Mocker) {
 	}
 }
 
-type ExpectMany []Expect
-
-func (em ExpectMany) Expectorise(mock Mocker) {
-	if em == nil {
-		mock.Maybe()
-		rmock, err := newReflectedMockCall(mock)
+// ExpectoriseMulti configures the given mock calls according to the behaviour
+// specified in the Expect.
+//
+// The callFn will be called once for each Expect in the given []Expect.
+// This enables multiple mock calls to be configured.
+//
+// For example:
+//
+//	ee := []tpp.Expect{
+//		tpp.Return(123),
+//		tpp.Return(456),
+//		tpp.Return(789),
+//	}
+//	tpp.ExpectoriseMulti(ee, func() tpp.MockCall {
+//		return m.EXPECT().MyFn(1)
+//	})
+//
+// An empty slice will result in a zero-valued return, just like a zero-valued
+// Expect.
+//
+// For more info, see Expect.Expectorise.
+func ExpectoriseMulti(ee []Expect, callFn func() MockCall) {
+	if ee == nil {
+		call := callFn()
+		call.Maybe()
+		rmock, err := newReflectedMockCall(call)
 		if err != nil {
 			panic(err)
 		}
 		rmock.CallReturnEmpty(nil)
 		return
 	}
-	for _, e := range em {
-		e.Expectorise(mock)
+	for _, e := range ee {
+		e := e
+		call := callFn()
+		e.Expectorise(call)
 	}
 }
 
 // unsetMock unsets a mock. This is necessary because testify's mock.Call.Unset()
 // does not gracefully handle the case where we have an argument matcher.
-func unsetMock(mock Mocker) {
+func unsetMock(mock MockCall) {
 	// mock may be a type that wraps a testify mock.Call, we can use Maybe to extract it, and then unset.
 	if call := mock.Maybe(); call != nil {
 		safeUnsetCall(call)
