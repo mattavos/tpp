@@ -572,7 +572,7 @@ func TestExpectMulti(t *testing.T) {
 //
 // This isn't the most common case, since we generally pass in the wrapped call
 // you get from mock.EXPECT().Foo(xxx, yyy). All the more reason to test it!
-func TestExpectWithBareMock(t *testing.T) {
+func TestExpectWithTestifyMock(t *testing.T) {
 	t.Run("Zero value gets empty return", func(t *testing.T) {
 		c := (&mock.Mock{}).On("Test", 1)
 
@@ -743,7 +743,7 @@ func TestExpectWithBareMock(t *testing.T) {
 //
 // This isn't the most common case, since we generally pass in the wrapped call
 // you get from mock.EXPECT().Foo(xxx, yyy). All the more reason to test it!
-func TestExpectMultiWithBareMock(t *testing.T) {
+func TestExpectMultiWithTestifyMock(t *testing.T) {
 	t.Run("Zero value gets empty return", func(t *testing.T) {
 		m := &mock.Mock{}
 		var ee []tpp.Expect

@@ -138,7 +138,7 @@ func configureMockCall(
 	returnArgs := make([]reflect.Value, len(returns))
 	for i, ret := range returns {
 		if opts.injectErrReturn && returnMethod.Type().In(i).Name() == "error" {
-			returnArgs[i] = reflect.ValueOf(errTest)
+			returnArgs[i] = reflect.ValueOf(errDefault)
 		} else if ret == nil {
 			returnArgs[i] = reflect.Zero(returnMethod.Type().In(i))
 		} else {

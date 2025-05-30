@@ -65,7 +65,7 @@ func OK(returns ...any) Expect {
 func Err() Expect {
 	return Expect{
 		Expected: ptr(true),
-		Err:      errTest,
+		Err:      errDefault,
 	}
 }
 
@@ -348,7 +348,7 @@ func safeUnsetCall(call *testifymock.Call) {
 	}
 }
 
-var errTest = errors.New("TEST ERROR")
+var errDefault = errors.New("ERROR")
 
 func ptr[T any](t T) *T {
 	return &t

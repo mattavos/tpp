@@ -12,6 +12,16 @@ type reflectedMockCall struct {
 	returnMethod reflect.Value
 }
 
+// newReflectedMockCall returns an instrumented MockCall by using reflect.
+//
+// We need this because we're interested in functions such as "Return" on the
+// mock, but Mockery types this depending on the thing being mocked and Go's
+// generics aren't rich enough for us to define a generic "Return" on the
+// MockCall interface.
+//
+// We *only* use reflection for that reason. All of the functions being accessed
+// here are exported functions from the Mockery mock. We must never touch
+// anything unexported here, and perhaps one day this layer can be removed.
 func newReflectedMockCall(mock MockCall) (*reflectedMockCall, error) {
 	// Validate mock
 	mockval := reflect.ValueOf(mock)
@@ -40,7 +50,6 @@ func newReflectedMockCall(mock MockCall) (*reflectedMockCall, error) {
 	}
 
 	// Extract and validate Return
-	//ret := mockval.MethodByName("Return")
 	ret := reflect.ValueOf(mock).MethodByName("Return")
 	if !ret.IsValid() {
 		return nil, errors.New("given mock has no Return method")
