@@ -10,7 +10,208 @@ import (
 	"github.com/stretchr/testify/require"
 
 	"github.com/mattavos/tpp"
+	obj "github.com/mattavos/tpp/testdata"
 )
+
+// We're testing using a mockery mock of an interface which looks like this:
+//
+//	type Obj interface {
+//		DoThing(a, b int) (int, error)
+//	}
+func TestExpect(t *testing.T) {
+	var (
+		errTest = errors.New("errTest")
+		_t      = &testing.T{} // dummy testing.T for passing into code under test
+	)
+
+	t.Run("Zero value gets empty return", func(t *testing.T) {
+		m := obj.NewMockObj(_t)
+		c := m.EXPECT().DoThing(1, 2)
+
+		var e tpp.Expect
+		e.Expectorise(c)
+
+		require.Len(t, c.ReturnArguments, 2)
+		for _, a := range c.ReturnArguments {
+			require.Empty(t, a)
+		}
+	})
+
+	t.Run("Zero value is Maybe()d", func(t *testing.T) {
+		m := obj.NewMockObj(_t)
+		c := m.EXPECT().DoThing(1, 2)
+
+		var e tpp.Expect
+		e.Expectorise(c)
+
+		require.True(t, isCallOptional(c))
+	})
+
+	t.Run("Return() setups up return", func(t *testing.T) {
+		m := obj.NewMockObj(_t)
+		c := m.EXPECT().DoThing(1, 2)
+
+		e := tpp.Return(123, errTest)
+		e.Expectorise(c)
+
+		require.Equal(t, toArgs(123, errTest), c.ReturnArguments)
+	})
+
+	t.Run("Return() is not Maybe()d", func(t *testing.T) {
+		m := obj.NewMockObj(_t)
+		c := m.EXPECT().DoThing(1, 2)
+
+		e := tpp.Return(123, errTest)
+		e.Expectorise(c)
+
+		require.False(t, isCallOptional(c))
+	})
+
+	t.Run("OK() setups up return", func(t *testing.T) {
+		m := obj.NewMockObj(_t)
+		c := m.EXPECT().DoThing(1, 2)
+
+		e := tpp.OK(123)
+		e.Expectorise(c)
+
+		require.Equal(t, toArgs(123, error(nil)), c.ReturnArguments)
+	})
+
+	t.Run("OK() is not Maybe()d", func(t *testing.T) {
+		m := obj.NewMockObj(_t)
+		c := m.EXPECT().DoThing(1, 2)
+
+		e := tpp.OK(123)
+		e.Expectorise(c)
+
+		require.False(t, isCallOptional(c))
+	})
+
+	t.Run("Err() setups up err return", func(t *testing.T) {
+		m := obj.NewMockObj(_t)
+		c := m.EXPECT().DoThing(1, 2)
+
+		e := tpp.Err()
+		e.Expectorise(c)
+
+		require.Len(t, c.ReturnArguments, 2)
+		require.Empty(t, c.ReturnArguments[0])
+		_, ok := c.ReturnArguments[1].(error)
+		require.True(t, ok)
+	})
+
+	t.Run("Err() is not Maybe()d", func(t *testing.T) {
+		m := obj.NewMockObj(_t)
+		c := m.EXPECT().DoThing(1, 2)
+
+		e := tpp.Err()
+		e.Expectorise(c)
+
+		require.False(t, isCallOptional(c))
+	})
+
+	t.Run("ErrWith() setups up err return", func(t *testing.T) {
+		m := obj.NewMockObj(_t)
+		c := m.EXPECT().DoThing(1, 2)
+
+		e := tpp.ErrWith(errTest)
+		e.Expectorise(c)
+
+		require.Equal(t, toArgs(0, errTest), c.ReturnArguments)
+	})
+
+	t.Run("ErrWith() is not Maybe()d", func(t *testing.T) {
+		m := obj.NewMockObj(_t)
+		c := m.EXPECT().DoThing(1, 2)
+
+		e := tpp.ErrWith(errTest)
+		e.Expectorise(c)
+
+		require.False(t, isCallOptional(c))
+	})
+
+	t.Run("Given().Return() setups up args and return: no err", func(t *testing.T) {
+		m := obj.NewMockObj(_t)
+		c := m.EXPECT().DoThing(tpp.Arg(), tpp.Arg())
+
+		e := tpp.Given(123, 456).Return(789, error(nil))
+		e.Expectorise(c)
+
+		require.Equal(t, toArgs(123, 456), c.Arguments)
+		require.Equal(t, toArgs(789, error(nil)), c.ReturnArguments)
+	})
+
+	t.Run("Given().Return() setups up args and return: err", func(t *testing.T) {
+		m := obj.NewMockObj(_t)
+		c := m.EXPECT().DoThing(tpp.Arg(), tpp.Arg())
+
+		e := tpp.Given(123, 456).Return(789, errTest)
+		e.Expectorise(c)
+
+		require.Equal(t, toArgs(123, 456), c.Arguments)
+		require.Equal(t, toArgs(789, errTest), c.ReturnArguments)
+	})
+
+	t.Run("Given().Return() setups up args with mock.Anything", func(t *testing.T) {
+		m := obj.NewMockObj(_t)
+		c := m.EXPECT().DoThing(tpp.Arg(), tpp.Arg())
+
+		e := tpp.Given(123, mock.Anything).Return(789, error(nil))
+		e.Expectorise(c)
+
+		require.Equal(t, toArgs(123, mock.Anything), c.Arguments)
+	})
+
+	t.Run("Given().Return() is not Maybe()d", func(t *testing.T) {
+		m := obj.NewMockObj(_t)
+		c := m.EXPECT().DoThing(tpp.Arg(), tpp.Arg())
+
+		e := tpp.Given(123, 456).Return(789, error(nil))
+		e.Expectorise(c)
+
+		require.False(t, isCallOptional(c))
+	})
+
+	t.Run("Unexpected() unsets mock", func(t *testing.T) {
+		m := obj.NewMockObj(_t)
+		c := m.EXPECT().DoThing(tpp.Arg(), tpp.Arg())
+
+		e := tpp.Unexpected()
+		e.Expectorise(c)
+
+		require.Empty(t, m.ExpectedCalls)
+	})
+
+	t.Run("Once() sets repeatability", func(t *testing.T) {
+		m := obj.NewMockObj(_t)
+		c := m.EXPECT().DoThing(tpp.Arg(), tpp.Arg())
+
+		e := tpp.OK(123).Once()
+		e.Expectorise(c)
+
+		require.Equal(t, 1, c.Repeatability)
+	})
+
+	t.Run("Times() sets repeatability", func(t *testing.T) {
+		m := obj.NewMockObj(_t)
+		c := m.EXPECT().DoThing(tpp.Arg(), tpp.Arg())
+
+		e := tpp.OK(123).Times(42)
+		e.Expectorise(c)
+
+		require.Equal(t, 42, c.Repeatability)
+	})
+
+	t.Run("Injecting() adds to return", func(t *testing.T) {
+		m := obj.NewMockObj(_t)
+		c := m.EXPECT().DoThing(tpp.Arg(), tpp.Arg())
+
+		e := tpp.OK( /* provided by injection */ )
+		e.Injecting(123).Expectorise(c)
+
+		require.Equal(t, toArgs(123, error(nil)), c.ReturnArguments)
+	})
+}
 
 // These tests check the behaviour of Expectorise when it's passed a "bare"
 // not-wrapped mock.Call, such as you get from mock.On("Foo", xxx, yyy).
@@ -83,6 +284,15 @@ func TestExpectWithBareMock(t *testing.T) {
 		require.True(t, ok)
 	})
 
+	t.Run("Err() is not Maybe()d", func(t *testing.T) {
+		c := (&mock.Mock{}).On("Test", 1)
+
+		e := tpp.Err()
+		e.Expectorise(c)
+
+		require.False(t, isCallOptional(c))
+	})
+
 	t.Run("ErrWith() setups up err return", func(t *testing.T) {
 		c := (&mock.Mock{}).On("Test", 1)
 
@@ -96,10 +306,11 @@ func TestExpectWithBareMock(t *testing.T) {
 		require.Equal(t, withErr, err)
 	})
 
-	t.Run("Err() is not Maybe()d", func(t *testing.T) {
+	t.Run("ErrWith() is not Maybe()d", func(t *testing.T) {
 		c := (&mock.Mock{}).On("Test", 1)
 
-		e := tpp.Err()
+		withErr := errors.New("Everything exploded")
+		e := tpp.ErrWith(withErr)
 		e.Expectorise(c)
 
 		require.False(t, isCallOptional(c))
@@ -575,7 +786,7 @@ func TestUnexpected(t *testing.T) {
 	})
 }
 
-func isCallOptional(call *mock.Call) bool {
+func isCallOptional(call tpp.MockCall) bool {
 	v := reflect.ValueOf(call)
 	if v.Kind() == reflect.Ptr {
 		v = v.Elem()
