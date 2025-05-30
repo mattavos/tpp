@@ -42,7 +42,7 @@ func TestExpectWithBareMock(t *testing.T) {
 		e := tpp.Return(123)
 		e.Expectorise(c)
 
-		require.Equal(t, mock.Arguments(mock.Arguments{123}), c.ReturnArguments)
+		require.Equal(t, toArgs(123), c.ReturnArguments)
 	})
 
 	t.Run("Return() is not Maybe()d", func(t *testing.T) {
@@ -60,7 +60,7 @@ func TestExpectWithBareMock(t *testing.T) {
 		e := tpp.OK(123)
 		e.Expectorise(c)
 
-		require.Equal(t, mock.Arguments(mock.Arguments{123}), c.ReturnArguments)
+		require.Equal(t, toArgs(123), c.ReturnArguments)
 	})
 
 	t.Run("OK() is not Maybe()d", func(t *testing.T) {
@@ -111,8 +111,8 @@ func TestExpectWithBareMock(t *testing.T) {
 		e := tpp.Given(123).Return(456)
 		e.Expectorise(c)
 
-		require.Equal(t, mock.Arguments(mock.Arguments{123}), c.Arguments)
-		require.Equal(t, mock.Arguments(mock.Arguments{456}), c.ReturnArguments)
+		require.Equal(t, toArgs(123), c.Arguments)
+		require.Equal(t, toArgs(456), c.ReturnArguments)
 	})
 
 	t.Run("Given().Return() is not Maybe()d", func(t *testing.T) {
@@ -192,23 +192,7 @@ func TestExpectMultiWithBareMock(t *testing.T) {
 		require.True(t, isCallOptional(m.ExpectedCalls[0]))
 	})
 
-	t.Run("Return() setups up call (one)", func(t *testing.T) {
-		m := &mock.Mock{}
-		ee := []tpp.Expect{
-			tpp.Return(123),
-		}
-
-		tpp.ExpectoriseMulti(ee, func() tpp.MockCall {
-			return m.On("Test", 1)
-		})
-
-		is := require.New(t)
-		is.Len(m.ExpectedCalls, 1)
-		is.Equal(mock.Arguments(mock.Arguments{1}), m.ExpectedCalls[0].Arguments)
-		is.Equal(mock.Arguments(mock.Arguments{123}), m.ExpectedCalls[0].ReturnArguments)
-	})
-
-	t.Run("Return() setups up calls (multi)", func(t *testing.T) {
+	t.Run("Return() setups up calls", func(t *testing.T) {
 		m := &mock.Mock{}
 		ee := []tpp.Expect{
 			tpp.Return(123),
@@ -225,14 +209,14 @@ func TestExpectMultiWithBareMock(t *testing.T) {
 		is := require.New(t)
 		is.Len(m.ExpectedCalls, 3)
 
-		is.Equal(mock.Arguments(mock.Arguments{0}), m.ExpectedCalls[0].Arguments)
-		is.Equal(mock.Arguments(mock.Arguments{123}), m.ExpectedCalls[0].ReturnArguments)
+		is.Equal(toArgs(0), m.ExpectedCalls[0].Arguments)
+		is.Equal(toArgs(123), m.ExpectedCalls[0].ReturnArguments)
 
-		is.Equal(mock.Arguments(mock.Arguments{1}), m.ExpectedCalls[1].Arguments)
-		is.Equal(mock.Arguments(mock.Arguments{456}), m.ExpectedCalls[1].ReturnArguments)
+		is.Equal(toArgs(1), m.ExpectedCalls[1].Arguments)
+		is.Equal(toArgs(456), m.ExpectedCalls[1].ReturnArguments)
 
-		is.Equal(mock.Arguments(mock.Arguments{2}), m.ExpectedCalls[2].Arguments)
-		is.Equal(mock.Arguments(mock.Arguments{789}), m.ExpectedCalls[2].ReturnArguments)
+		is.Equal(toArgs(2), m.ExpectedCalls[2].Arguments)
+		is.Equal(toArgs(789), m.ExpectedCalls[2].ReturnArguments)
 	})
 
 	t.Run("Return() calls aren't Maybe()d", func(t *testing.T) {
@@ -253,6 +237,247 @@ func TestExpectMultiWithBareMock(t *testing.T) {
 		}
 	})
 
+	t.Run("OK() setups up calls", func(t *testing.T) {
+		m := &mock.Mock{}
+		ee := []tpp.Expect{
+			tpp.OK(123),
+			tpp.OK(456),
+			tpp.OK(789),
+		}
+
+		i := 0
+		tpp.ExpectoriseMulti(ee, func() tpp.MockCall {
+			defer func() { i++ }()
+			return m.On("Test", i)
+		})
+
+		is := require.New(t)
+		is.Len(m.ExpectedCalls, 3)
+
+		is.Equal(toArgs(0), m.ExpectedCalls[0].Arguments)
+		is.Equal(toArgs(123), m.ExpectedCalls[0].ReturnArguments)
+
+		is.Equal(toArgs(1), m.ExpectedCalls[1].Arguments)
+		is.Equal(toArgs(456), m.ExpectedCalls[1].ReturnArguments)
+
+		is.Equal(toArgs(2), m.ExpectedCalls[2].Arguments)
+		is.Equal(toArgs(789), m.ExpectedCalls[2].ReturnArguments)
+	})
+
+	t.Run("OK() calls aren't Maybe()d", func(t *testing.T) {
+		m := &mock.Mock{}
+		ee := []tpp.Expect{
+			tpp.OK(123),
+			tpp.OK(456),
+			tpp.OK(789),
+		}
+
+		tpp.ExpectoriseMulti(ee, func() tpp.MockCall {
+			return m.On("Test", 1)
+		})
+
+		require.Len(t, m.ExpectedCalls, 3)
+		for _, c := range m.ExpectedCalls {
+			require.False(t, isCallOptional(c))
+		}
+	})
+
+	t.Run("Err() setups up err returns", func(t *testing.T) {
+		m := &mock.Mock{}
+		ee := []tpp.Expect{
+			tpp.Err(),
+			tpp.Err(),
+			tpp.Err(),
+		}
+
+		i := 0
+		tpp.ExpectoriseMulti(ee, func() tpp.MockCall {
+			defer func() { i++ }()
+			return m.On("Test", i)
+		})
+
+		is := require.New(t)
+		is.Len(m.ExpectedCalls, 3)
+
+		is.Equal(toArgs(0), m.ExpectedCalls[0].Arguments)
+		_, ok := m.ExpectedCalls[0].ReturnArguments[0].(error)
+		is.True(ok)
+
+		is.Equal(toArgs(1), m.ExpectedCalls[1].Arguments)
+		_, ok = m.ExpectedCalls[1].ReturnArguments[0].(error)
+		is.True(ok)
+
+		is.Equal(toArgs(2), m.ExpectedCalls[2].Arguments)
+		_, ok = m.ExpectedCalls[2].ReturnArguments[0].(error)
+		is.True(ok)
+	})
+
+	t.Run("Err() returns aren't Maybe()d", func(t *testing.T) {
+		m := &mock.Mock{}
+		ee := []tpp.Expect{
+			tpp.Err(),
+			tpp.Err(),
+			tpp.Err(),
+		}
+
+		tpp.ExpectoriseMulti(ee, func() tpp.MockCall {
+			return m.On("Test", 1)
+		})
+
+		require.Len(t, m.ExpectedCalls, 3)
+		for _, c := range m.ExpectedCalls {
+			require.False(t, isCallOptional(c))
+		}
+	})
+
+	t.Run("ErrWith() setups up err returns", func(t *testing.T) {
+		var (
+			errOne   = errors.New("one")
+			errTwo   = errors.New("two")
+			errThree = errors.New("three")
+		)
+		m := &mock.Mock{}
+		ee := []tpp.Expect{
+			tpp.ErrWith(errOne),
+			tpp.ErrWith(errTwo),
+			tpp.ErrWith(errThree),
+		}
+
+		i := 0
+		tpp.ExpectoriseMulti(ee, func() tpp.MockCall {
+			defer func() { i++ }()
+			return m.On("Test", i)
+		})
+
+		is := require.New(t)
+		is.Len(m.ExpectedCalls, 3)
+
+		is.Equal(toArgs(0), m.ExpectedCalls[0].Arguments)
+		err, ok := m.ExpectedCalls[0].ReturnArguments[0].(error)
+		is.True(ok)
+		is.Equal(errOne, err)
+
+		is.Equal(toArgs(1), m.ExpectedCalls[1].Arguments)
+		err, ok = m.ExpectedCalls[1].ReturnArguments[0].(error)
+		is.True(ok)
+		is.Equal(errTwo, err)
+
+		is.Equal(toArgs(2), m.ExpectedCalls[2].Arguments)
+		err, ok = m.ExpectedCalls[2].ReturnArguments[0].(error)
+		is.True(ok)
+		is.Equal(errThree, err)
+	})
+
+	t.Run("ErrWith() returns aren't Maybe()d", func(t *testing.T) {
+		m := &mock.Mock{}
+		ee := []tpp.Expect{
+			tpp.ErrWith(errors.New("one")),
+			tpp.ErrWith(errors.New("two")),
+			tpp.ErrWith(errors.New("three")),
+		}
+
+		tpp.ExpectoriseMulti(ee, func() tpp.MockCall {
+			return m.On("Test", 1)
+		})
+
+		require.Len(t, m.ExpectedCalls, 3)
+		for _, c := range m.ExpectedCalls {
+			require.False(t, isCallOptional(c))
+		}
+	})
+
+	t.Run("Given().Return() setups up args and return", func(t *testing.T) {
+		m := &mock.Mock{}
+		ee := []tpp.Expect{
+			tpp.Given(1).Return("one"),
+			tpp.Given(2).Return("two"),
+			tpp.Given(3).Return("three"),
+		}
+
+		tpp.ExpectoriseMulti(ee, func() tpp.MockCall {
+			return m.On("Test", tpp.Arg())
+		})
+
+		is := require.New(t)
+
+		is.Len(m.ExpectedCalls, 3)
+
+		is.Equal(toArgs(1), m.ExpectedCalls[0].Arguments)
+		is.Equal(toArgs("one"), m.ExpectedCalls[0].ReturnArguments)
+
+		is.Equal(toArgs(2), m.ExpectedCalls[1].Arguments)
+		is.Equal(toArgs("two"), m.ExpectedCalls[1].ReturnArguments)
+
+		is.Equal(toArgs(3), m.ExpectedCalls[2].Arguments)
+		is.Equal(toArgs("three"), m.ExpectedCalls[2].ReturnArguments)
+	})
+
+	t.Run("Given().Return() is not Maybe()d", func(t *testing.T) {
+		m := &mock.Mock{}
+		ee := []tpp.Expect{
+			tpp.Given(1).Return("one"),
+			tpp.Given(2).Return("two"),
+			tpp.Given(3).Return("three"),
+		}
+
+		tpp.ExpectoriseMulti(ee, func() tpp.MockCall {
+			return m.On("Test", tpp.Arg())
+		})
+
+		require.Len(t, m.ExpectedCalls, 3)
+		for _, c := range m.ExpectedCalls {
+			require.False(t, isCallOptional(c))
+		}
+	})
+
+	t.Run("Unexpected() unsets mock", func(t *testing.T) {
+		m := &mock.Mock{}
+		ee := []tpp.Expect{
+			tpp.Unexpected(),
+		}
+
+		tpp.ExpectoriseMulti(ee, func() tpp.MockCall {
+			return m.On("Test", tpp.Arg())
+		})
+
+		require.Empty(t, m.ExpectedCalls)
+	})
+
+	t.Run("Once() sets repeatability", func(t *testing.T) {
+		m := &mock.Mock{}
+		ee := []tpp.Expect{
+			tpp.Given(1).Return("one").Once(),
+			tpp.Given(2).Return("two").Once(),
+			tpp.Given(3).Return("three").Once(),
+		}
+
+		tpp.ExpectoriseMulti(ee, func() tpp.MockCall {
+			return m.On("Test", tpp.Arg())
+		})
+
+		require.Len(t, m.ExpectedCalls, 3)
+		for _, c := range m.ExpectedCalls {
+			require.Equal(t, 1, c.Repeatability)
+		}
+	})
+
+	t.Run("Times() sets repeatability", func(t *testing.T) {
+		m := &mock.Mock{}
+		ee := []tpp.Expect{
+			tpp.Given(1).Return("one").Times(1),
+			tpp.Given(2).Return("two").Times(2),
+			tpp.Given(3).Return("three").Times(3),
+		}
+
+		tpp.ExpectoriseMulti(ee, func() tpp.MockCall {
+			return m.On("Test", tpp.Arg())
+		})
+
+		require.Len(t, m.ExpectedCalls, 3)
+		for i, c := range m.ExpectedCalls {
+			require.Equal(t, i+1, c.Repeatability)
+		}
+	})
 }
 
 type mockImpl struct {
@@ -327,4 +552,8 @@ func isCallOptional(call *mock.Call) bool {
 	// Bypass access restrictions
 	ptr := unsafe.Pointer(f.UnsafeAddr())
 	return *(*bool)(ptr)
+}
+
+func toArgs(a ...any) mock.Arguments {
+	return mock.Arguments(a)
 }
