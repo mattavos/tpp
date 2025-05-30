@@ -115,6 +115,17 @@ func TestExpectWithBareMock(t *testing.T) {
 		require.Equal(t, toArgs(456), c.ReturnArguments)
 	})
 
+	t.Run("Given().Return() setups up multiple args and return", func(t *testing.T) {
+		errTest := errors.New("uh oh")
+		c := (&mock.Mock{}).On("Test", tpp.Arg(), tpp.Arg(), tpp.Arg())
+
+		e := tpp.Given(1, 2, 3).Return(456, errTest)
+		e.Expectorise(c)
+
+		require.Equal(t, toArgs(1, 2, 3), c.Arguments)
+		require.Equal(t, toArgs(456, errTest), c.ReturnArguments)
+	})
+
 	t.Run("Given().Return() is not Maybe()d", func(t *testing.T) {
 		c := (&mock.Mock{}).On("Test", tpp.Arg())
 
@@ -353,19 +364,13 @@ func TestExpectMultiWithBareMock(t *testing.T) {
 		is.Len(m.ExpectedCalls, 3)
 
 		is.Equal(toArgs(0), m.ExpectedCalls[0].Arguments)
-		err, ok := m.ExpectedCalls[0].ReturnArguments[0].(error)
-		is.True(ok)
-		is.Equal(errOne, err)
+		is.Equal(toArgs(errOne), m.ExpectedCalls[0].ReturnArguments)
 
 		is.Equal(toArgs(1), m.ExpectedCalls[1].Arguments)
-		err, ok = m.ExpectedCalls[1].ReturnArguments[0].(error)
-		is.True(ok)
-		is.Equal(errTwo, err)
+		is.Equal(toArgs(errTwo), m.ExpectedCalls[1].ReturnArguments)
 
 		is.Equal(toArgs(2), m.ExpectedCalls[2].Arguments)
-		err, ok = m.ExpectedCalls[2].ReturnArguments[0].(error)
-		is.True(ok)
-		is.Equal(errThree, err)
+		is.Equal(toArgs(errThree), m.ExpectedCalls[2].ReturnArguments)
 	})
 
 	t.Run("ErrWith() returns aren't Maybe()d", func(t *testing.T) {
@@ -410,6 +415,37 @@ func TestExpectMultiWithBareMock(t *testing.T) {
 
 		is.Equal(toArgs(3), m.ExpectedCalls[2].Arguments)
 		is.Equal(toArgs("three"), m.ExpectedCalls[2].ReturnArguments)
+	})
+
+	t.Run("Given().Return() setups up multiple args and return", func(t *testing.T) {
+		var (
+			errOne   = errors.New("one")
+			errTwo   = errors.New("two")
+			errThree = errors.New("three")
+		)
+		m := &mock.Mock{}
+		ee := []tpp.Expect{
+			tpp.Given(1, 2, 3).Return("one", errOne),
+			tpp.Given(4, 5, 6).Return("two", errTwo),
+			tpp.Given(7, 8, 9).Return("three", errThree),
+		}
+
+		tpp.ExpectoriseMulti(ee, func() tpp.MockCall {
+			return m.On("Test", tpp.Arg(), tpp.Arg(), tpp.Arg())
+		})
+
+		is := require.New(t)
+
+		is.Len(m.ExpectedCalls, 3)
+
+		is.Equal(toArgs(1, 2, 3), m.ExpectedCalls[0].Arguments)
+		is.Equal(toArgs("one", errOne), m.ExpectedCalls[0].ReturnArguments)
+
+		is.Equal(toArgs(4, 5, 6), m.ExpectedCalls[1].Arguments)
+		is.Equal(toArgs("two", errTwo), m.ExpectedCalls[1].ReturnArguments)
+
+		is.Equal(toArgs(7, 8, 9), m.ExpectedCalls[2].Arguments)
+		is.Equal(toArgs("three", errThree), m.ExpectedCalls[2].ReturnArguments)
 	})
 
 	t.Run("Given().Return() is not Maybe()d", func(t *testing.T) {
