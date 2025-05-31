@@ -186,10 +186,20 @@ func (e Expect) Once() Expect {
 	return e.Times(1)
 }
 
-// TODO: Dave Cheney style Option for things like default returns
+// expectoriseOption is used to configure Expectorise and ExpectoriseMulti.
+type expectoriseOption struct {
+	defaultReturns []any
+}
+
+// WithDefaultReturns sets default returns to be used when configuring the mock.
 //
-//func WithDefaultReturn() func(*option) {
-//}
+// These will be provided instead of zero-value returns where returns are not
+// otherwise provided by the Expect.
+func WithDefaultReturns(returns ...any) func(*expectoriseOption) {
+	return func(opt *expectoriseOption) {
+		opt.defaultReturns = returns
+	}
+}
 
 // MockCall represents a Mockery mock.
 type MockCall interface {
@@ -220,7 +230,13 @@ type MockCall interface {
 // If Expect.Return is non-nil, Expectorise will configure the mock to return
 // Expect.Return. If Expect.Err is also set, Expectorise will append a non-nil
 // error to the returned values.
-func (e *Expect) Expectorise(mock MockCall) {
+func (e *Expect) Expectorise(mock MockCall, options ...func(*expectoriseOption)) {
+	// Parse options
+	var opts expectoriseOption
+	for _, o := range options {
+		o(&opts)
+	}
+
 	if e.Expected != nil && !*e.Expected {
 		unsetMock(mock)
 		return
@@ -275,13 +291,18 @@ func (e *Expect) Expectorise(mock MockCall) {
 		rmock.SetArguments(newargs)
 	}
 
-	if e.Return == nil {
-		rmock.CallReturnEmpty(e.Err)
-	} else {
+	if e.Return != nil {
 		err := rmock.CallReturn(e.Return, e.Err)
 		if err != nil {
 			panic(err)
 		}
+	} else if opts.defaultReturns != nil {
+		err := rmock.CallReturn(opts.defaultReturns, nil)
+		if err != nil {
+			panic(err)
+		}
+	} else {
+		rmock.CallReturnEmpty(e.Err)
 	}
 }
 
@@ -306,21 +327,39 @@ func (e *Expect) Expectorise(mock MockCall) {
 //		return m.EXPECT().MyFn(1)
 //	})
 //
-// An empty slice will result in a zero-valued return, just like a zero-valued
+// A nil slice will result in a zero-valued return, just like a zero-valued
 // Expect.
 //
+// An empty slice will result in the mock call being unexpected.
+//
 // For more info, see Expect.Expectorise.
-func ExpectoriseMulti(ee []Expect, callFn func() MockCall) {
+func ExpectoriseMulti(ee []Expect, callFn func() MockCall, options ...func(*expectoriseOption)) {
+	// Parse options
+	var opts expectoriseOption
+	for _, o := range options {
+		o(&opts)
+	}
+
+	// If there are no Expects in the slice, then set up an empty/default return.
 	if ee == nil {
 		call := callFn()
 		call.Maybe()
+
 		rmock, err := newReflectedMockCall(call)
 		if err != nil {
 			panic(err)
 		}
-		rmock.CallReturnEmpty(nil)
+		if opts.defaultReturns != nil {
+			err := rmock.CallReturn(opts.defaultReturns, nil)
+			if err != nil {
+				panic(err)
+			}
+		} else {
+			rmock.CallReturnEmpty(nil)
+		}
 		return
 	}
+
 	for _, e := range ee {
 		e := e
 		call := callFn()
