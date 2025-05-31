@@ -55,8 +55,7 @@ func Return(returns ...any) Expect {
 
 // OK returns an Expect with the given return and no error.
 //
-// TODO: think about how this fits in now that we have to handle
-// Given(xxx).Return(yyy). Is it just equivalent?
+// Any error values on mockery mocks will be automatically zero valued.
 func OK(returns ...any) Expect {
 	return Return(returns...)
 }
