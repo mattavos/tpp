@@ -211,7 +211,7 @@ func TestExpect(t *testing.T) {
 		require.Equal(t, toArgs(123, error(nil)), c.ReturnArguments)
 	})
 
-	t.Run("WithDefaultReturn() adds to return if Expect empty", func(t *testing.T) {
+	t.Run("WithDefaultReturns() adds to return if Expect empty", func(t *testing.T) {
 		m := obj.NewMockObj(_t)
 		c := m.EXPECT().DoThing(1, 2)
 
@@ -221,7 +221,7 @@ func TestExpect(t *testing.T) {
 		require.Equal(t, toArgs(123, errTest), c.ReturnArguments)
 	})
 
-	t.Run("WithDefaultReturn() adds to return only if Expect empty", func(t *testing.T) {
+	t.Run("WithDefaultReturns() adds to return only if Expect empty", func(t *testing.T) {
 		m := obj.NewMockObj(_t)
 		c := m.EXPECT().DoThing(1, 2)
 
@@ -231,7 +231,7 @@ func TestExpect(t *testing.T) {
 		require.Equal(t, toArgs(123, errTest), c.ReturnArguments)
 	})
 
-	t.Run("WithDefaultReturn() causes panic if wrong number of args", func(t *testing.T) {
+	t.Run("WithDefaultReturns() causes panic if wrong number of args", func(t *testing.T) {
 		m := obj.NewMockObj(_t)
 		c := m.EXPECT().DoThing(1, 2)
 
@@ -242,7 +242,7 @@ func TestExpect(t *testing.T) {
 		})
 	})
 
-	t.Run("WithDefaultReturn() causes panic if wrong type args", func(t *testing.T) {
+	t.Run("WithDefaultReturns() causes panic if wrong type args", func(t *testing.T) {
 		m := obj.NewMockObj(_t)
 		c := m.EXPECT().DoThing(1, 2) // returns int, error
 
@@ -619,7 +619,7 @@ func TestExpectMulti(t *testing.T) {
 		}
 	})
 
-	t.Run("WithDefaultReturn() adds to return if Expect empty", func(t *testing.T) {
+	t.Run("WithDefaultReturns() adds to return if Expect empty", func(t *testing.T) {
 		m := obj.NewMockObj(_t)
 
 		var ee []tpp.Expect
@@ -632,7 +632,7 @@ func TestExpectMulti(t *testing.T) {
 		require.Equal(t, mock.Arguments([]any{1, errTest}), m.ExpectedCalls[0].ReturnArguments)
 	})
 
-	t.Run("WithDefaultReturn() adds to return only if Expect empty", func(t *testing.T) {
+	t.Run("WithDefaultReturns() adds to return only if Expect empty", func(t *testing.T) {
 		m := obj.NewMockObj(_t)
 
 		ee := []tpp.Expect{
@@ -646,7 +646,7 @@ func TestExpectMulti(t *testing.T) {
 		require.Equal(t, mock.Arguments([]any{123, errTest}), m.ExpectedCalls[0].ReturnArguments)
 	})
 
-	t.Run("WithDefaultReturn() causes panic if wrong number of args", func(t *testing.T) {
+	t.Run("WithDefaultReturns() causes panic if wrong number of args", func(t *testing.T) {
 		m := obj.NewMockObj(_t)
 
 		var ee []tpp.Expect
@@ -828,7 +828,7 @@ func TestExpectWithTestifyMock(t *testing.T) {
 		require.Equal(t, mock.Arguments(mock.Arguments{123, 456}), c.ReturnArguments)
 	})
 
-	t.Run("WithDefaultReturn() adds to return if Expect empty", func(t *testing.T) {
+	t.Run("WithDefaultReturns() adds to return if Expect empty", func(t *testing.T) {
 		c := (&mock.Mock{}).On("Test", 1)
 
 		var e tpp.Expect
@@ -837,7 +837,7 @@ func TestExpectWithTestifyMock(t *testing.T) {
 		require.Equal(t, toArgs(123, errTest), c.ReturnArguments)
 	})
 
-	t.Run("WithDefaultReturn() adds to return only if Expect empty", func(t *testing.T) {
+	t.Run("WithDefaultReturns() adds to return only if Expect empty", func(t *testing.T) {
 		c := (&mock.Mock{}).On("Test", 1)
 
 		e := tpp.Return(123, errTest)
@@ -1202,7 +1202,7 @@ func TestExpectMultiWithTestifyMock(t *testing.T) {
 		}
 	})
 
-	t.Run("WithDefaultReturn() adds to return if Expect empty", func(t *testing.T) {
+	t.Run("WithDefaultReturns() adds to return if Expect empty", func(t *testing.T) {
 		m := &mock.Mock{}
 
 		var ee []tpp.Expect
@@ -1214,7 +1214,7 @@ func TestExpectMultiWithTestifyMock(t *testing.T) {
 		require.Equal(t, mock.Arguments([]any{1, 2, 3}), m.ExpectedCalls[0].ReturnArguments)
 	})
 
-	t.Run("WithDefaultReturn() adds to return only if Expect empty", func(t *testing.T) {
+	t.Run("WithDefaultReturns() adds to return only if Expect empty", func(t *testing.T) {
 		m := &mock.Mock{}
 
 		ee := []tpp.Expect{
