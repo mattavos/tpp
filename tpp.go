@@ -84,6 +84,7 @@ func Unexpected() Expect {
 	}
 }
 
+// Given starts a builder with args which will ultimately configure an Expect.
 func Given(args ...any) *callBuilder {
 	return &callBuilder{
 		args: args,
@@ -94,11 +95,12 @@ type callBuilder struct {
 	args []any
 }
 
+// Return returns an Expect with the given returns and args from Given().
 func (c *callBuilder) Return(returns ...any) Expect {
 	return Expect{
-		Expected: ptr(true),
-		Args:     c.args,
-		Return:   returns,
+		Expected:        ptr(true),
+		ArgReplacements: c.args,
+		Return:          returns,
 	}
 }
 
@@ -121,6 +123,10 @@ func Arg() templateArg {
 
 type templateArg struct{}
 
+// -----------------------------------------------------------------------------
+// Expect ----------------------------------------------------------------------
+// -----------------------------------------------------------------------------
+
 // Expect represents an expectation for use in configuration-driven tests.
 // This binds together whether a mock call should be expected, what it should
 // return, and whether it should return an error.
@@ -131,10 +137,12 @@ type Expect struct {
 	//   - nil   => The mock may or may not be called
 	Expected *bool
 
-	// Args are the arguments the handled mock should expect. These will only be
-	// added to the mock call if its arguments are specified as tpp.Arg().
+	// ArgReplacements are optional arguments which we will use to replace any
+	// tpp.Arg values in the mock.Arguments. These will *only* be added to the mock
+	// call if its arguments are specified as tpp.Arg().
+	//
 	// See tpp.Arg() for more info.
-	Args []any
+	ArgReplacements []any
 
 	// Return are the *non-error* returns for the mock.
 	//
@@ -252,12 +260,12 @@ func (e *Expect) Expectorise(mock MockCall) {
 		var idx int
 		for _, arg := range args {
 			if _, ok := arg.(templateArg); ok {
-				if idx >= len(e.Args) {
+				if idx >= len(e.ArgReplacements) {
 					// We've ran out of args: this happens if we specified an error in the
 					// Expect and the test still put a placeholder in. All good.
 					newargs = append(newargs, testifymock.Anything)
 				} else {
-					newargs = append(newargs, e.Args[idx])
+					newargs = append(newargs, e.ArgReplacements[idx])
 					idx++
 				}
 			} else {
@@ -276,6 +284,10 @@ func (e *Expect) Expectorise(mock MockCall) {
 		}
 	}
 }
+
+// -----------------------------------------------------------------------------
+// ExpectoriseMulti ------------------------------------------------------------
+// -----------------------------------------------------------------------------
 
 // ExpectoriseMulti configures the given mock calls according to the behaviour
 // specified in the []Expect.
@@ -315,6 +327,10 @@ func ExpectoriseMulti(ee []Expect, callFn func() MockCall) {
 		e.Expectorise(call)
 	}
 }
+
+// -----------------------------------------------------------------------------
+// Unexported Helpers ----------------------------------------------------------
+// -----------------------------------------------------------------------------
 
 // unsetMock unsets a mock. This is necessary because testify's mock.Call.Unset()
 // does not gracefully handle the case where we have an argument matcher.
