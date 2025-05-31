@@ -16,6 +16,8 @@ import (
 // breaking changes at this layer. If one of these tests fails, it's likely that
 // something in testify/mockery has changed in an incompatible way.
 
+var errTest = errors.New("TEST ERROR")
+
 func TestReflect(t *testing.T) {
 	_t := &testing.T{} // dummy testing.T for passing into code under test
 
@@ -63,6 +65,50 @@ func TestReflect(t *testing.T) {
 		rm.CallReturnEmpty(errTest)
 		// DoThing returns (int, error)
 		require.Equal(t, mock.Arguments(mock.Arguments{0, errTest}), c.ReturnArguments)
+	})
+
+	t.Run("CallReturn", func(t *testing.T) {
+		// DoThing returns (int, error)
+		type ret struct {
+			rets   []any
+			errVal error
+		}
+
+		for _, tt := range []struct {
+			name       string
+			withReturn ret
+			wantErr    bool
+		}{
+			{name: "OK: ret 42,nil", withReturn: ret{rets: []any{42}, errVal: nil}},
+			{name: "OK: ret 0,nil", withReturn: ret{rets: []any{0}, errVal: nil}},
+			{name: "OK: ret 1,err", withReturn: ret{rets: []any{1}, errVal: errTest}},
+			{name: "OK: ret 0,err", withReturn: ret{rets: []any{0}, errVal: errTest}},
+			{
+				name:       "ERR: not enough returns",
+				withReturn: ret{rets: []any{}},
+				wantErr:    true,
+			},
+			{
+				name:       "ERR: too many returns",
+				withReturn: ret{rets: []any{1, 2, 3}},
+				wantErr:    true,
+			},
+		} {
+			t.Run(tt.name, func(t *testing.T) {
+				is := require.New(t)
+				c := obj.NewMockObj(_t).EXPECT().DoThing(1, 2)
+				rm, _ := newReflectedMockCall(c)
+
+				err := rm.CallReturn(tt.withReturn.rets, tt.withReturn.errVal)
+				is.Equal(tt.wantErr, err != nil)
+
+				if !tt.wantErr {
+					returns := append([]any{}, tt.withReturn.rets...)
+					returns = append(returns, tt.withReturn.errVal)
+					is.Equal(mock.Arguments(returns), c.ReturnArguments)
+				}
+			})
+		}
 	})
 }
 

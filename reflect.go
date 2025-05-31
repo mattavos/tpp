@@ -127,7 +127,7 @@ func (rm *reflectedMockCall) CallReturn(args []any, retErr error) error {
 	}
 
 	// TODO: some check here that the correct number and type of
-	// arguments have been passed in
+	// arguments have been passed in, with a nice error if not.
 
 	rargs, err := toReflectValues(returnArgs, returnType)
 	if err != nil {
