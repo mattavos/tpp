@@ -7,11 +7,6 @@ import (
 	"github.com/pkg/errors"
 )
 
-type reflectedMockCall struct {
-	args         reflect.Value
-	returnMethod reflect.Value
-}
-
 // newReflectedMockCall returns an instrumented MockCall by using reflect.
 //
 // We need this because we're interested in functions such as "Return" on the
@@ -61,6 +56,16 @@ func newReflectedMockCall(mock MockCall) (*reflectedMockCall, error) {
 	}, nil
 }
 
+type reflectedMockCall struct {
+	args         reflect.Value
+	returnMethod reflect.Value
+}
+
+// GetArguents returns the mock's arguments.
+//
+// This is just a getter for mock.Arguments. We need this because we want to get
+// the arguments but an interface like tpp.MockCall can't specify field values
+// in Golang.
 func (rm *reflectedMockCall) GetArguments() ([]any, error) {
 	result := make([]any, rm.args.Len())
 
@@ -71,6 +76,11 @@ func (rm *reflectedMockCall) GetArguments() ([]any, error) {
 	return result, nil
 }
 
+// GetArguents returns the mock's arguments.
+//
+// This is just a setter for mock.Arguments. We need this because we want to set
+// the arguments but an interface like tpp.MockCall can't specify field values
+// in Golang.
 func (rm *reflectedMockCall) SetArguments(args []any) {
 	newSlice := reflect.MakeSlice(rm.args.Type(), len(args), len(args))
 
@@ -81,6 +91,9 @@ func (rm *reflectedMockCall) SetArguments(args []any) {
 	rm.args.Set(newSlice)
 }
 
+// CallReturnEmpty calls the mock's Return method with empty values.
+//
+// If an optional error is provided, we will use that for error values.
 func (rm *reflectedMockCall) CallReturnEmpty(retErr error) {
 	var (
 		returnType = rm.returnMethod.Type()
@@ -106,6 +119,9 @@ func (rm *reflectedMockCall) CallReturnEmpty(retErr error) {
 	rm.returnMethod.Call(emptyArgs)
 }
 
+// CallReturn calls the mock's Return method with the given args.
+//
+// If an optional retErr is provided, we will use that for error values.
 func (rm *reflectedMockCall) CallReturn(args []any, retErr error) error {
 	returnType := rm.returnMethod.Type()
 	returnLen := returnType.NumIn()
