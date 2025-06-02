@@ -290,18 +290,24 @@ func (e *Expect) Expectorise(mock MockCall, options ...func(*expectoriseOption))
 		rmock.SetArguments(newargs)
 	}
 
-	if e.Return != nil {
+	switch {
+	case e.Return != nil:
 		err := rmock.CallReturn(e.Return, e.Err)
 		if err != nil {
 			panic(err)
 		}
-	} else if opts.defaultReturns != nil {
+
+	case e.Err != nil:
+		rmock.CallReturnEmpty(e.Err)
+
+	case opts.defaultReturns != nil:
 		err := rmock.CallReturn(opts.defaultReturns, nil)
 		if err != nil {
 			panic(err)
 		}
-	} else {
-		rmock.CallReturnEmpty(e.Err)
+
+	default:
+		rmock.CallReturnEmpty(nil)
 	}
 }
 
