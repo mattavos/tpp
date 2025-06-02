@@ -8,24 +8,32 @@ import (
 	testifymock "github.com/stretchr/testify/mock"
 )
 
+// Deprecated
+//
 // True returns a ptr to true. Tri-state bools, baby!
 func True() *bool {
 	v := true
 	return &v
 }
 
+// Deprecated
+//
 // False returns a ptr to false. Tri-state bools, baby!
 func False() *bool {
 	v := false
 	return &v
 }
 
+// Deprecated
+//
 // Call represents a single mock call. This is to be used with Expects.
 type Call struct {
 	Given  []any
 	Return []any
 }
 
+// Deprecated: use []Expect and ExpectoriseMulti or Given(xxx).Return(yyy) instead
+//
 // Expects represents an expectation for use in configuration-driven tests.
 // This binds together whether a set of mock calls should be expected, what
 // they should return, and whether they should return an error.
@@ -35,6 +43,8 @@ type Expects struct {
 	err      bool
 }
 
+// Deprecated
+//
 // Unexpecteds returns an Expects which is unexpected.
 func Unexpecteds() Expects {
 	return Expects{
@@ -42,6 +52,8 @@ func Unexpecteds() Expects {
 	}
 }
 
+// Deprecated
+//
 // OKs returns an Expects with the given calls.
 func OKs(calls []Call) Expects {
 	return Expects{
@@ -50,6 +62,8 @@ func OKs(calls []Call) Expects {
 	}
 }
 
+// Deprecated
+//
 // Errs returns an Expects with a generic test error.
 func Errs() Expects {
 	return Expects{
@@ -58,6 +72,8 @@ func Errs() Expects {
 	}
 }
 
+// Deprecated: use []Expect and ExpectoriseMulti or Given(xxx).Return(yyy) instead
+//
 // Expectorise configures the given |mockFunc| according to the behaviour
 // specified in the Expects.
 //
