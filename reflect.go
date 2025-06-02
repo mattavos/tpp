@@ -3,6 +3,7 @@ package tpp
 import (
 	"fmt"
 	"reflect"
+	"strings"
 
 	"github.com/pkg/errors"
 )
@@ -51,12 +52,14 @@ func newReflectedMockCall(mock MockCall) (*reflectedMockCall, error) {
 	}
 
 	return &reflectedMockCall{
+		wrapped:      mock,
 		args:         args,
 		returnMethod: ret,
 	}, nil
 }
 
 type reflectedMockCall struct {
+	wrapped      MockCall
 	args         reflect.Value
 	returnMethod reflect.Value
 }
@@ -101,20 +104,28 @@ func (rm *reflectedMockCall) CallReturnEmpty(retErr error) {
 		emptyArgs  = make([]reflect.Value, 0)
 	)
 
-	for i := 0; i < returnLen; i++ {
-		argType := returnType.In(i)
+	if returnLen == 1 && returnType.In(0).Name() == "" && retErr != nil {
+		// Special case: we have an error to return and one argument with an unknown
+		// type. This can happen in two cases. First, when we're handling a bare
+		// testify mock and don't know the Return type. Secondly, when we're handling
+		// a mockery mock with a custom Return type which will be hidden to us. In
+		// the first case, we want to call Return(retErr). The second case is a user
+		// error and will panic.
+		emptyArgs = append(emptyArgs, reflect.ValueOf(retErr))
+	} else {
+		for i := 0; i < returnLen; i++ {
+			argType := returnType.In(i)
 
-		if retErr != nil && (argType.Name() == "error" || argType.Name() == "") {
-			// We were given an error to return -- use it!
-			// Note we match on "error" and "" here because if a bare testifymock.Call
-			// has been passed to us, we won't have type information. We don't usually
-			// add a return in that case (see below), but here the user has set an err
-			// so we do what they ask.
-			emptyArgs = append(emptyArgs, reflect.ValueOf(retErr))
-		} else if argType.Name() != "" {
-			emptyArgs = append(emptyArgs, reflect.Zero(argType))
+			if retErr != nil && argType.Name() == "error" {
+				// We were given an error to return -- use it!
+				emptyArgs = append(emptyArgs, reflect.ValueOf(retErr))
+			} else if !returnType.IsVariadic() || i < returnLen-1 {
+				emptyArgs = append(emptyArgs, reflect.Zero(argType))
+			}
 		}
 	}
+
+	rm.mustArgMatch(returnType, emptyArgs)
 
 	rm.returnMethod.Call(emptyArgs)
 }
@@ -123,10 +134,11 @@ func (rm *reflectedMockCall) CallReturnEmpty(retErr error) {
 //
 // If an optional retErr is provided, we will use that for error values.
 func (rm *reflectedMockCall) CallReturn(args []any, retErr error) error {
-	returnType := rm.returnMethod.Type()
-	returnLen := returnType.NumIn()
-
-	returnArgs := append([]any{}, args...)
+	var (
+		returnType = rm.returnMethod.Type()
+		returnLen  = returnType.NumIn()
+		returnArgs = append([]any{}, args...)
+	)
 
 	if retErr != nil {
 		// We were given an error to return -- use it!
@@ -142,13 +154,12 @@ func (rm *reflectedMockCall) CallReturn(args []any, retErr error) error {
 		}
 	}
 
-	// TODO: some check here that the correct number and type of
-	// arguments have been passed in, with a nice error if not.
-
 	rargs, err := toReflectValues(returnArgs, returnType)
 	if err != nil {
 		return fmt.Errorf("toReflectValues failed to transform return values: %s", err)
 	}
+
+	rm.mustArgMatch(returnType, rargs)
 
 	rm.returnMethod.Call(rargs)
 	return nil
@@ -190,8 +201,122 @@ func toReflectValues(args []any, typ reflect.Type) ([]reflect.Value, error) {
 	return values, nil
 }
 
+// -----------------------------------------------------------------------------
+// Helpful error messages ------------------------------------------------------
+// -----------------------------------------------------------------------------
+// Because of lack of type safety, people are going to both:
+//   (a) pass in the wrong number of arguments/returns, and
+//   (b) pass in the wrong type of arguments/returns
+// especially when refactoring code. We need to make sure that the errors one
+// gets back in these two cases are as helpful as possible.
+// -----------------------------------------------------------------------------
+
+// mustArgMatch panics with a helpful message if the args don't match the type.
+func (rm *reflectedMockCall) mustArgMatch(fnType reflect.Type, args []reflect.Value) {
+	if !argsMatch(fnType, args) {
+		panic(printArgMismatch(reflect.ValueOf(rm.wrapped).String(), fnType, args))
+	}
+}
+
+// argsMatch returns whether the args match the given function type.
+func argsMatch(fnType reflect.Type, args []reflect.Value) bool {
+	if fnType.Kind() != reflect.Func {
+		return false
+	}
+
+	numIn := fnType.NumIn()
+
+	// Handle variadic function separately
+	if fnType.IsVariadic() {
+		if len(args) < numIn-1 {
+			return false
+		}
+		for i := 0; i < numIn-1; i++ {
+			if !argAssignable(args[i], fnType.In(i)) {
+				return false
+			}
+		}
+		variadicType := fnType.In(numIn - 1).Elem()
+		for i := numIn - 1; i < len(args); i++ {
+			if !argAssignable(args[i], variadicType) {
+				return false
+			}
+		}
+		return true
+	}
+
+	// Non-variadic function
+	if len(args) != numIn {
+		return false
+	}
+	for i := 0; i < numIn; i++ {
+		if !argAssignable(args[i], fnType.In(i)) {
+			return false
+		}
+	}
+	return true
+}
+
+func argAssignable(arg reflect.Value, target reflect.Type) bool {
+	if !arg.IsValid() {
+		// Invalid value = nil; only assignable to nillable types
+		kind := target.Kind()
+		return kind == reflect.Interface ||
+			kind == reflect.Ptr ||
+			kind == reflect.Slice ||
+			kind == reflect.Map ||
+			kind == reflect.Func ||
+			kind == reflect.Chan
+	}
+	return arg.Type().AssignableTo(target)
+}
+
+func printArgMismatch(debugName string, fnType reflect.Type, args []reflect.Value) string {
+	var b strings.Builder
+	b.WriteString(fmt.Sprintf("\n%s Return() called with the wrong arguments!\n", debugName))
+
+	numIn := fnType.NumIn()
+
+	// Expected signature
+	b.WriteString("  Expected: (")
+	for i := 0; i < numIn; i++ {
+		if i > 0 {
+			b.WriteString(", ")
+		}
+		if fnType.IsVariadic() && i == numIn-1 {
+			b.WriteString("..." + fnType.In(i).Elem().String())
+		} else {
+			b.WriteString(fnType.In(i).String())
+		}
+	}
+	b.WriteString(")\n")
+
+	// Actual signature
+	b.WriteString("  Received: (")
+	for i := 0; i < len(args); i++ {
+		if i > 0 {
+			b.WriteString(", ")
+		}
+		if !args[i].IsValid() {
+			b.WriteString("invalid")
+		} else {
+			b.WriteString(args[i].Type().String())
+		}
+	}
+	b.WriteString(")\n")
+
+	return b.String()
+}
+
 func min(a, b int) int {
 	if a < b {
+		return a
+	}
+	return b
+}
+
+func max(a, b int) int {
+	if a > b {
 		return a
 	}
 	return b
