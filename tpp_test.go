@@ -1,6 +1,7 @@
 package tpp_test
 
 import (
+	"context"
 	"reflect"
 	"testing"
 	"unsafe"
@@ -10,21 +11,19 @@ import (
 	"github.com/stretchr/testify/require"
 
 	"github.com/mattavos/tpp"
-	obj "github.com/mattavos/tpp/testdata"
+	"github.com/mattavos/tpp/testdata"
 )
-
-var errTest = errors.New("TEST")
 
 // We're testing using a mockery mock of an interface which looks like this:
 //
-//	type Obj interface {
+//	type IntyThing interface {
 //		DoThing(a, b int) (int, error)
 //	}
-func TestExpect(t *testing.T) {
+func TestExpectWithMockeryMockIntyThing(t *testing.T) {
 	_t := &testing.T{} // dummy testing.T for passing into code under test
 
 	t.Run("Zero value gets empty return", func(t *testing.T) {
-		m := obj.NewMockObj(_t)
+		m := testdata.NewMockIntyThing(_t)
 		c := m.EXPECT().DoThing(1, 2)
 
 		var e tpp.Expect
@@ -37,7 +36,7 @@ func TestExpect(t *testing.T) {
 	})
 
 	t.Run("Zero value is Maybe()d", func(t *testing.T) {
-		m := obj.NewMockObj(_t)
+		m := testdata.NewMockIntyThing(_t)
 		c := m.EXPECT().DoThing(1, 2)
 
 		var e tpp.Expect
@@ -47,7 +46,7 @@ func TestExpect(t *testing.T) {
 	})
 
 	t.Run("Return() setups up return", func(t *testing.T) {
-		m := obj.NewMockObj(_t)
+		m := testdata.NewMockIntyThing(_t)
 		c := m.EXPECT().DoThing(1, 2)
 
 		e := tpp.Return(123, errTest)
@@ -57,7 +56,7 @@ func TestExpect(t *testing.T) {
 	})
 
 	t.Run("Return() is not Maybe()d", func(t *testing.T) {
-		m := obj.NewMockObj(_t)
+		m := testdata.NewMockIntyThing(_t)
 		c := m.EXPECT().DoThing(1, 2)
 
 		e := tpp.Return(123, errTest)
@@ -67,7 +66,7 @@ func TestExpect(t *testing.T) {
 	})
 
 	t.Run("OK() setups up return", func(t *testing.T) {
-		m := obj.NewMockObj(_t)
+		m := testdata.NewMockIntyThing(_t)
 		c := m.EXPECT().DoThing(1, 2)
 
 		e := tpp.OK(123)
@@ -77,7 +76,7 @@ func TestExpect(t *testing.T) {
 	})
 
 	t.Run("OK() is not Maybe()d", func(t *testing.T) {
-		m := obj.NewMockObj(_t)
+		m := testdata.NewMockIntyThing(_t)
 		c := m.EXPECT().DoThing(1, 2)
 
 		e := tpp.OK(123)
@@ -87,7 +86,7 @@ func TestExpect(t *testing.T) {
 	})
 
 	t.Run("Err() setups up err return", func(t *testing.T) {
-		m := obj.NewMockObj(_t)
+		m := testdata.NewMockIntyThing(_t)
 		c := m.EXPECT().DoThing(1, 2)
 
 		e := tpp.Err()
@@ -100,7 +99,7 @@ func TestExpect(t *testing.T) {
 	})
 
 	t.Run("Err() is not Maybe()d", func(t *testing.T) {
-		m := obj.NewMockObj(_t)
+		m := testdata.NewMockIntyThing(_t)
 		c := m.EXPECT().DoThing(1, 2)
 
 		e := tpp.Err()
@@ -110,7 +109,7 @@ func TestExpect(t *testing.T) {
 	})
 
 	t.Run("ErrWith() setups up err return", func(t *testing.T) {
-		m := obj.NewMockObj(_t)
+		m := testdata.NewMockIntyThing(_t)
 		c := m.EXPECT().DoThing(1, 2)
 
 		e := tpp.ErrWith(errTest)
@@ -120,7 +119,7 @@ func TestExpect(t *testing.T) {
 	})
 
 	t.Run("ErrWith() is not Maybe()d", func(t *testing.T) {
-		m := obj.NewMockObj(_t)
+		m := testdata.NewMockIntyThing(_t)
 		c := m.EXPECT().DoThing(1, 2)
 
 		e := tpp.ErrWith(errTest)
@@ -130,7 +129,7 @@ func TestExpect(t *testing.T) {
 	})
 
 	t.Run("Given().Return() setups up args and return: no err", func(t *testing.T) {
-		m := obj.NewMockObj(_t)
+		m := testdata.NewMockIntyThing(_t)
 		c := m.EXPECT().DoThing(tpp.Arg(), tpp.Arg())
 
 		e := tpp.Given(123, 456).Return(789, error(nil))
@@ -141,7 +140,7 @@ func TestExpect(t *testing.T) {
 	})
 
 	t.Run("Given().Return() setups up args and return: err", func(t *testing.T) {
-		m := obj.NewMockObj(_t)
+		m := testdata.NewMockIntyThing(_t)
 		c := m.EXPECT().DoThing(tpp.Arg(), tpp.Arg())
 
 		e := tpp.Given(123, 456).Return(789, errTest)
@@ -152,7 +151,7 @@ func TestExpect(t *testing.T) {
 	})
 
 	t.Run("Given().Return() setups up args with mock.Anything", func(t *testing.T) {
-		m := obj.NewMockObj(_t)
+		m := testdata.NewMockIntyThing(_t)
 		c := m.EXPECT().DoThing(tpp.Arg(), tpp.Arg())
 
 		e := tpp.Given(123, mock.Anything).Return(789, error(nil))
@@ -162,7 +161,7 @@ func TestExpect(t *testing.T) {
 	})
 
 	t.Run("Given().Return() is not Maybe()d", func(t *testing.T) {
-		m := obj.NewMockObj(_t)
+		m := testdata.NewMockIntyThing(_t)
 		c := m.EXPECT().DoThing(tpp.Arg(), tpp.Arg())
 
 		e := tpp.Given(123, 456).Return(789, error(nil))
@@ -172,7 +171,7 @@ func TestExpect(t *testing.T) {
 	})
 
 	t.Run("Unexpected() unsets mock", func(t *testing.T) {
-		m := obj.NewMockObj(_t)
+		m := testdata.NewMockIntyThing(_t)
 		c := m.EXPECT().DoThing(tpp.Arg(), tpp.Arg())
 
 		e := tpp.Unexpected()
@@ -182,7 +181,7 @@ func TestExpect(t *testing.T) {
 	})
 
 	t.Run("Once() sets repeatability", func(t *testing.T) {
-		m := obj.NewMockObj(_t)
+		m := testdata.NewMockIntyThing(_t)
 		c := m.EXPECT().DoThing(tpp.Arg(), tpp.Arg())
 
 		e := tpp.OK(123).Once()
@@ -192,7 +191,7 @@ func TestExpect(t *testing.T) {
 	})
 
 	t.Run("Times() sets repeatability", func(t *testing.T) {
-		m := obj.NewMockObj(_t)
+		m := testdata.NewMockIntyThing(_t)
 		c := m.EXPECT().DoThing(tpp.Arg(), tpp.Arg())
 
 		e := tpp.OK(123).Times(42)
@@ -202,7 +201,7 @@ func TestExpect(t *testing.T) {
 	})
 
 	t.Run("Injecting() adds to return", func(t *testing.T) {
-		m := obj.NewMockObj(_t)
+		m := testdata.NewMockIntyThing(_t)
 		c := m.EXPECT().DoThing(tpp.Arg(), tpp.Arg())
 
 		e := tpp.OK( /* provided by injection */ )
@@ -212,7 +211,7 @@ func TestExpect(t *testing.T) {
 	})
 
 	t.Run("WithDefaultReturns() adds to return if Expect empty", func(t *testing.T) {
-		m := obj.NewMockObj(_t)
+		m := testdata.NewMockIntyThing(_t)
 		c := m.EXPECT().DoThing(1, 2)
 
 		var e tpp.Expect
@@ -222,7 +221,7 @@ func TestExpect(t *testing.T) {
 	})
 
 	t.Run("WithDefaultReturns() adds to return only if Expect empty (Return)", func(t *testing.T) {
-		m := obj.NewMockObj(_t)
+		m := testdata.NewMockIntyThing(_t)
 		c := m.EXPECT().DoThing(1, 2)
 
 		e := tpp.Return(123, errTest)
@@ -232,7 +231,7 @@ func TestExpect(t *testing.T) {
 	})
 
 	t.Run("WithDefaultReturns() adds to return only if Expect empty (Err)", func(t *testing.T) {
-		m := obj.NewMockObj(_t)
+		m := testdata.NewMockIntyThing(_t)
 		c := m.EXPECT().DoThing(1, 2)
 
 		e := tpp.Err()
@@ -244,7 +243,7 @@ func TestExpect(t *testing.T) {
 	})
 
 	t.Run("WithDefaultReturns() causes panic if wrong number of args", func(t *testing.T) {
-		m := obj.NewMockObj(_t)
+		m := testdata.NewMockIntyThing(_t)
 		c := m.EXPECT().DoThing(1, 2)
 
 		var e tpp.Expect
@@ -255,7 +254,7 @@ func TestExpect(t *testing.T) {
 	})
 
 	t.Run("WithDefaultReturns() causes panic if wrong type args", func(t *testing.T) {
-		m := obj.NewMockObj(_t)
+		m := testdata.NewMockIntyThing(_t)
 		c := m.EXPECT().DoThing(1, 2) // returns int, error
 
 		var e tpp.Expect
@@ -268,14 +267,14 @@ func TestExpect(t *testing.T) {
 
 // We're testing using a mockery mock of an interface which looks like this:
 //
-//	type Obj interface {
+//	type IntyThing interface {
 //		DoThing(a, b int) (int, error)
 //	}
-func TestExpectMulti(t *testing.T) {
+func TestExpectMultiWithMockeryMockIntyThing(t *testing.T) {
 	_t := &testing.T{} // dummy testing.T for passing into code under test
 
 	t.Run("Zero value gets empty return", func(t *testing.T) {
-		m := obj.NewMockObj(_t)
+		m := testdata.NewMockIntyThing(_t)
 		var ee []tpp.Expect
 
 		tpp.ExpectoriseMulti(ee, func() tpp.MockCall {
@@ -289,7 +288,7 @@ func TestExpectMulti(t *testing.T) {
 	})
 
 	t.Run("Zero value is Maybe()d", func(t *testing.T) {
-		m := obj.NewMockObj(_t)
+		m := testdata.NewMockIntyThing(_t)
 		var ee []tpp.Expect
 
 		tpp.ExpectoriseMulti(ee, func() tpp.MockCall {
@@ -301,7 +300,7 @@ func TestExpectMulti(t *testing.T) {
 	})
 
 	t.Run("Empty unsets mock", func(t *testing.T) {
-		m := obj.NewMockObj(_t)
+		m := testdata.NewMockIntyThing(_t)
 		ee := []tpp.Expect{
 			/* No expectations */
 		}
@@ -314,7 +313,7 @@ func TestExpectMulti(t *testing.T) {
 	})
 
 	t.Run("Return() setups up calls", func(t *testing.T) {
-		m := obj.NewMockObj(_t)
+		m := testdata.NewMockIntyThing(_t)
 		ee := []tpp.Expect{
 			tpp.Return(123, nil),
 			tpp.Return(456, nil),
@@ -341,7 +340,7 @@ func TestExpectMulti(t *testing.T) {
 	})
 
 	t.Run("Return() calls aren't Maybe()d", func(t *testing.T) {
-		m := obj.NewMockObj(_t)
+		m := testdata.NewMockIntyThing(_t)
 		ee := []tpp.Expect{
 			tpp.Return(123, nil),
 			tpp.Return(456, nil),
@@ -361,7 +360,7 @@ func TestExpectMulti(t *testing.T) {
 	})
 
 	t.Run("OK() setups up calls", func(t *testing.T) {
-		m := obj.NewMockObj(_t)
+		m := testdata.NewMockIntyThing(_t)
 		ee := []tpp.Expect{
 			tpp.OK(123),
 			tpp.OK(456),
@@ -388,7 +387,7 @@ func TestExpectMulti(t *testing.T) {
 	})
 
 	t.Run("OK() calls aren't Maybe()d", func(t *testing.T) {
-		m := obj.NewMockObj(_t)
+		m := testdata.NewMockIntyThing(_t)
 		ee := []tpp.Expect{
 			tpp.OK(123),
 			tpp.OK(456),
@@ -410,7 +409,7 @@ func TestExpectMulti(t *testing.T) {
 	})
 
 	t.Run("Err() setups up err returns", func(t *testing.T) {
-		m := obj.NewMockObj(_t)
+		m := testdata.NewMockIntyThing(_t)
 		ee := []tpp.Expect{
 			tpp.Err(),
 			tpp.Err(),
@@ -443,7 +442,7 @@ func TestExpectMulti(t *testing.T) {
 	})
 
 	t.Run("Err() returns aren't Maybe()d", func(t *testing.T) {
-		m := obj.NewMockObj(_t)
+		m := testdata.NewMockIntyThing(_t)
 		ee := []tpp.Expect{
 			tpp.Err(),
 			tpp.Err(),
@@ -466,7 +465,7 @@ func TestExpectMulti(t *testing.T) {
 			errTwo   = errors.New("two")
 			errThree = errors.New("three")
 		)
-		m := obj.NewMockObj(_t)
+		m := testdata.NewMockIntyThing(_t)
 		ee := []tpp.Expect{
 			tpp.ErrWith(errOne),
 			tpp.ErrWith(errTwo),
@@ -493,7 +492,7 @@ func TestExpectMulti(t *testing.T) {
 	})
 
 	t.Run("ErrWith() returns aren't Maybe()d", func(t *testing.T) {
-		m := obj.NewMockObj(_t)
+		m := testdata.NewMockIntyThing(_t)
 		ee := []tpp.Expect{
 			tpp.ErrWith(errors.New("one")),
 			tpp.ErrWith(errors.New("two")),
@@ -513,7 +512,7 @@ func TestExpectMulti(t *testing.T) {
 	})
 
 	t.Run("Given().Return() setups up args and return", func(t *testing.T) {
-		m := obj.NewMockObj(_t)
+		m := testdata.NewMockIntyThing(_t)
 		ee := []tpp.Expect{
 			tpp.Given(1, 1).Return(1, nil),
 			tpp.Given(2, 2).Return(2, nil),
@@ -539,7 +538,7 @@ func TestExpectMulti(t *testing.T) {
 	})
 
 	t.Run("Given().Return() setups up args and return: errors", func(t *testing.T) {
-		m := obj.NewMockObj(_t)
+		m := testdata.NewMockIntyThing(_t)
 		ee := []tpp.Expect{
 			tpp.Given(1, 1).Return(1, errTest),
 			tpp.Given(2, 2).Return(2, errTest),
@@ -565,7 +564,7 @@ func TestExpectMulti(t *testing.T) {
 	})
 
 	t.Run("Given().Return() is not Maybe()d", func(t *testing.T) {
-		m := obj.NewMockObj(_t)
+		m := testdata.NewMockIntyThing(_t)
 		ee := []tpp.Expect{
 			tpp.Given(1, 1).Return(1, nil),
 			tpp.Given(2, 2).Return(2, nil),
@@ -583,7 +582,7 @@ func TestExpectMulti(t *testing.T) {
 	})
 
 	t.Run("Unexpected() unsets mock", func(t *testing.T) {
-		m := obj.NewMockObj(_t)
+		m := testdata.NewMockIntyThing(_t)
 		ee := []tpp.Expect{
 			tpp.Unexpected(),
 		}
@@ -596,7 +595,7 @@ func TestExpectMulti(t *testing.T) {
 	})
 
 	t.Run("Once() sets repeatability", func(t *testing.T) {
-		m := obj.NewMockObj(_t)
+		m := testdata.NewMockIntyThing(_t)
 		ee := []tpp.Expect{
 			tpp.Given(1, 1).Return(1).Once(),
 			tpp.Given(2, 2).Return(2).Once(),
@@ -614,7 +613,7 @@ func TestExpectMulti(t *testing.T) {
 	})
 
 	t.Run("Times() sets repeatability", func(t *testing.T) {
-		m := obj.NewMockObj(_t)
+		m := testdata.NewMockIntyThing(_t)
 		ee := []tpp.Expect{
 			tpp.Given(1, 1).Return(1).Times(1),
 			tpp.Given(2, 2).Return(2).Times(2),
@@ -632,7 +631,7 @@ func TestExpectMulti(t *testing.T) {
 	})
 
 	t.Run("WithDefaultReturns() adds to return if Expect empty", func(t *testing.T) {
-		m := obj.NewMockObj(_t)
+		m := testdata.NewMockIntyThing(_t)
 
 		var ee []tpp.Expect
 
@@ -645,7 +644,7 @@ func TestExpectMulti(t *testing.T) {
 	})
 
 	t.Run("WithDefaultReturns() adds to return only if Expect empty", func(t *testing.T) {
-		m := obj.NewMockObj(_t)
+		m := testdata.NewMockIntyThing(_t)
 
 		ee := []tpp.Expect{
 			tpp.Return(123, errTest),
@@ -659,7 +658,7 @@ func TestExpectMulti(t *testing.T) {
 	})
 
 	t.Run("WithDefaultReturns() adds to return only if Expect empty (Err)", func(t *testing.T) {
-		m := obj.NewMockObj(_t)
+		m := testdata.NewMockIntyThing(_t)
 
 		ee := []tpp.Expect{
 			tpp.Err(),
@@ -674,7 +673,7 @@ func TestExpectMulti(t *testing.T) {
 	})
 
 	t.Run("WithDefaultReturns() causes panic if wrong number of args", func(t *testing.T) {
-		m := obj.NewMockObj(_t)
+		m := testdata.NewMockIntyThing(_t)
 
 		var ee []tpp.Expect
 
@@ -682,6 +681,264 @@ func TestExpectMulti(t *testing.T) {
 			tpp.ExpectoriseMulti(ee, func() tpp.MockCall {
 				return m.EXPECT().DoThing(1, 2)
 			}, tpp.WithDefaultReturns(1, 2, 3, 4, 5))
+		})
+	})
+}
+
+// We're testing using a mockery mock of an interface which looks like this:
+//
+//	type StructyThing interface {
+//		DoThing(context.Context, *Struct) (*Struct, error)
+//	}
+func TestExpectWithMockeryMockStructyThing(t *testing.T) {
+	var (
+		_t = &testing.T{} // dummy testing.T for passing into code under test
+		s1 = &testdata.Struct{A: 1, B: 2}
+		s2 = &testdata.Struct{A: 10, B: 20}
+	)
+
+	t.Run("Zero value gets empty return", func(t *testing.T) {
+		c := testdata.NewMockStructyThing(_t).
+			EXPECT().DoThing(context.TODO(), s1)
+
+		var e tpp.Expect
+		e.Expectorise(c)
+
+		require.Len(t, c.ReturnArguments, 2)
+		for _, a := range c.ReturnArguments {
+			require.Empty(t, a)
+		}
+	})
+
+	t.Run("Zero value is Maybe()d", func(t *testing.T) {
+		c := testdata.NewMockStructyThing(_t).
+			EXPECT().DoThing(context.TODO(), s1)
+
+		var e tpp.Expect
+		e.Expectorise(c)
+
+		require.True(t, isCallOptional(c))
+	})
+
+	t.Run("Return() setups up return", func(t *testing.T) {
+		c := testdata.NewMockStructyThing(_t).
+			EXPECT().DoThing(context.TODO(), s1)
+
+		e := tpp.Return(s2, errTest)
+		e.Expectorise(c)
+
+		require.Equal(t, toArgs(s2, errTest), c.ReturnArguments)
+	})
+
+	t.Run("Return() is not Maybe()d", func(t *testing.T) {
+		c := testdata.NewMockStructyThing(_t).
+			EXPECT().DoThing(context.TODO(), s1)
+
+		e := tpp.Return(s2, errTest)
+		e.Expectorise(c)
+
+		require.False(t, isCallOptional(c))
+	})
+
+	t.Run("OK() setups up return", func(t *testing.T) {
+		c := testdata.NewMockStructyThing(_t).
+			EXPECT().DoThing(context.TODO(), s1)
+
+		e := tpp.OK(s2)
+		e.Expectorise(c)
+
+		require.Equal(t, toArgs(s2, error(nil)), c.ReturnArguments)
+	})
+
+	t.Run("OK() is not Maybe()d", func(t *testing.T) {
+		c := testdata.NewMockStructyThing(_t).
+			EXPECT().DoThing(context.TODO(), s1)
+
+		e := tpp.OK(s2)
+		e.Expectorise(c)
+
+		require.False(t, isCallOptional(c))
+	})
+
+	t.Run("Err() setups up err return", func(t *testing.T) {
+		c := testdata.NewMockStructyThing(_t).
+			EXPECT().DoThing(context.TODO(), s1)
+
+		e := tpp.Err()
+		e.Expectorise(c)
+
+		require.Len(t, c.ReturnArguments, 2)
+		require.Empty(t, c.ReturnArguments[0])
+		_, ok := c.ReturnArguments[1].(error)
+		require.True(t, ok)
+	})
+
+	t.Run("Err() is not Maybe()d", func(t *testing.T) {
+		c := testdata.NewMockStructyThing(_t).
+			EXPECT().DoThing(context.TODO(), s1)
+
+		e := tpp.Err()
+		e.Expectorise(c)
+
+		require.False(t, isCallOptional(c))
+	})
+
+	t.Run("ErrWith() setups up err return", func(t *testing.T) {
+		c := testdata.NewMockStructyThing(_t).
+			EXPECT().DoThing(context.TODO(), s1)
+
+		e := tpp.ErrWith(errTest)
+		e.Expectorise(c)
+
+		require.Equal(t, toArgs((*testdata.Struct)(nil), errTest), c.ReturnArguments)
+	})
+
+	t.Run("ErrWith() is not Maybe()d", func(t *testing.T) {
+		c := testdata.NewMockStructyThing(_t).
+			EXPECT().DoThing(context.TODO(), s1)
+
+		e := tpp.ErrWith(errTest)
+		e.Expectorise(c)
+
+		require.False(t, isCallOptional(c))
+	})
+
+	t.Run("Given().Return() setups up args and return: no err", func(t *testing.T) {
+		ctx := context.TODO()
+		c := testdata.NewMockStructyThing(_t).
+			EXPECT().DoThing(tpp.Arg(), tpp.Arg())
+
+		e := tpp.Given(ctx, s1).Return(s2, nil)
+		e.Expectorise(c)
+
+		require.Equal(t, toArgs(ctx, s1), c.Arguments)
+		require.Equal(t, toArgs(s2, error(nil)), c.ReturnArguments)
+	})
+
+	t.Run("Given().Return() setups up args and return: err", func(t *testing.T) {
+		ctx := context.TODO()
+		c := testdata.NewMockStructyThing(_t).
+			EXPECT().DoThing(tpp.Arg(), tpp.Arg())
+
+		e := tpp.Given(ctx, s1).Return(nil, errTest)
+		e.Expectorise(c)
+
+		require.Equal(t, toArgs(ctx, s1), c.Arguments)
+		require.Equal(t, toArgs((*testdata.Struct)(nil), errTest), c.ReturnArguments)
+	})
+
+	t.Run("Given().Return() setups up args with mock.Anything", func(t *testing.T) {
+		ctx := context.TODO()
+		c := testdata.NewMockStructyThing(_t).
+			EXPECT().DoThing(tpp.Arg(), tpp.Arg())
+
+		e := tpp.Given(ctx, mock.Anything).Return(s2, nil)
+		e.Expectorise(c)
+
+		require.Equal(t, toArgs(ctx, mock.Anything), c.Arguments)
+	})
+
+	t.Run("Given().Return() is not Maybe()d", func(t *testing.T) {
+		c := testdata.NewMockStructyThing(_t).
+			EXPECT().DoThing(tpp.Arg(), tpp.Arg())
+
+		e := tpp.Given(context.TODO(), s1).Return(s2, nil)
+		e.Expectorise(c)
+
+		require.False(t, isCallOptional(c))
+	})
+
+	t.Run("Unexpected() unsets mock", func(t *testing.T) {
+		m := testdata.NewMockStructyThing(_t)
+		c := m.EXPECT().DoThing(context.TODO(), s1)
+
+		e := tpp.Unexpected()
+		e.Expectorise(c)
+
+		require.Empty(t, m.ExpectedCalls)
+	})
+
+	t.Run("Once() sets repeatability", func(t *testing.T) {
+		c := testdata.NewMockStructyThing(_t).
+			EXPECT().DoThing(context.TODO(), s1)
+
+		e := tpp.Return(s1, nil).Once()
+		e.Expectorise(c)
+
+		require.Equal(t, 1, c.Repeatability)
+	})
+
+	t.Run("Times() sets repeatability", func(t *testing.T) {
+		c := testdata.NewMockStructyThing(_t).
+			EXPECT().DoThing(context.TODO(), s1)
+
+		e := tpp.Return(s2, nil).Times(42)
+		e.Expectorise(c)
+
+		require.Equal(t, 42, c.Repeatability)
+	})
+
+	t.Run("Injecting() adds to return", func(t *testing.T) {
+		c := testdata.NewMockStructyThing(_t).
+			EXPECT().DoThing(context.TODO(), s1)
+
+		e := tpp.OK( /* provided by injection */ )
+		e.Injecting(s2).Expectorise(c)
+
+		require.Equal(t, toArgs(s2, error(nil)), c.ReturnArguments)
+	})
+
+	t.Run("WithDefaultReturns() adds to return if Expect empty", func(t *testing.T) {
+		c := testdata.NewMockStructyThing(_t).
+			EXPECT().DoThing(context.TODO(), s1)
+
+		var e tpp.Expect
+		e.Expectorise(c, tpp.WithDefaultReturns(s2, errTest))
+
+		require.Equal(t, toArgs(s2, errTest), c.ReturnArguments)
+	})
+
+	t.Run("WithDefaultReturns() adds to return only if Expect empty (Return)", func(t *testing.T) {
+		c := testdata.NewMockStructyThing(_t).
+			EXPECT().DoThing(context.TODO(), s1)
+
+		e := tpp.Return(s2, nil)
+		e.Expectorise(c, tpp.WithDefaultReturns(s1, errTest))
+
+		require.Equal(t, toArgs(s2, nil), c.ReturnArguments)
+	})
+
+	t.Run("WithDefaultReturns() adds to return only if Expect empty (Err)", func(t *testing.T) {
+		m := testdata.NewMockStructyThing(_t)
+		c := m.EXPECT().DoThing(context.TODO(), s1)
+
+		e := tpp.Err()
+		e.Expectorise(c, tpp.WithDefaultReturns(s2, error(nil)))
+
+		require.Empty(t, m.ExpectedCalls[0].ReturnArguments[0])
+		_, ok := m.ExpectedCalls[0].ReturnArguments[1].(error)
+		require.True(t, ok)
+	})
+
+	t.Run("WithDefaultReturns() causes panic if wrong number of args", func(t *testing.T) {
+		m := testdata.NewMockStructyThing(_t)
+		c := m.EXPECT().DoThing(context.TODO(), s1)
+
+		var e tpp.Expect
+
+		require.Panics(t, func() {
+			e.Expectorise(c, tpp.WithDefaultReturns(s1, s1, s1, error(nil)))
+		})
+	})
+
+	t.Run("WithDefaultReturns() causes panic if wrong type args", func(t *testing.T) {
+		m := testdata.NewMockStructyThing(_t)
+		c := m.EXPECT().DoThing(context.TODO(), s1)
+
+		var e tpp.Expect
+
+		require.Panics(t, func() {
+			e.Expectorise(c, tpp.WithDefaultReturns("wrong", "types", error(nil)))
 		})
 	})
 }
@@ -1358,3 +1615,5 @@ func isCallOptional(call tpp.MockCall) bool {
 func toArgs(a ...any) mock.Arguments {
 	return mock.Arguments(a)
 }
+
+var errTest = errors.New("TEST")

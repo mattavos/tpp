@@ -7,7 +7,7 @@ import (
 	"github.com/stretchr/testify/mock"
 	"github.com/stretchr/testify/require"
 
-	obj "github.com/mattavos/tpp/testdata"
+	"github.com/mattavos/tpp/testdata"
 )
 
 // We unfortunately have to rely on reflection to get the type information for
@@ -22,14 +22,14 @@ func TestReflect(t *testing.T) {
 	_t := &testing.T{} // dummy testing.T for passing into code under test
 
 	t.Run("newReflectedMockCall", func(t *testing.T) {
-		c := obj.NewMockObj(_t).EXPECT().DoThing(1, 2)
+		c := testdata.NewMockIntyThing(_t).EXPECT().DoThing(1, 2)
 		rm, err := newReflectedMockCall(c)
 		require.NoError(t, err)
 		require.NotNil(t, rm)
 	})
 
 	t.Run("GetArguments", func(t *testing.T) {
-		c := obj.NewMockObj(_t).EXPECT().DoThing(1, 2)
+		c := testdata.NewMockIntyThing(_t).EXPECT().DoThing(1, 2)
 		rm, _ := newReflectedMockCall(c)
 		args, err := rm.GetArguments()
 
@@ -39,7 +39,7 @@ func TestReflect(t *testing.T) {
 	})
 
 	t.Run("SetArguments", func(t *testing.T) {
-		c := obj.NewMockObj(_t).EXPECT().DoThing(1, 2)
+		c := testdata.NewMockIntyThing(_t).EXPECT().DoThing(1, 2)
 		rm, _ := newReflectedMockCall(c)
 
 		rm.SetArguments([]any{3, 4})
@@ -51,7 +51,7 @@ func TestReflect(t *testing.T) {
 	})
 
 	t.Run("CallReturnEmpty: nil err", func(t *testing.T) {
-		c := obj.NewMockObj(_t).EXPECT().DoThing(1, 2)
+		c := testdata.NewMockIntyThing(_t).EXPECT().DoThing(1, 2)
 		rm, _ := newReflectedMockCall(c)
 		rm.CallReturnEmpty(nil)
 		// DoThing returns (int, error), so empty is 0, nil
@@ -60,7 +60,7 @@ func TestReflect(t *testing.T) {
 
 	t.Run("CallReturnEmpty: with err", func(t *testing.T) {
 		errTest := errors.New("ERROR")
-		c := obj.NewMockObj(_t).EXPECT().DoThing(1, 2)
+		c := testdata.NewMockIntyThing(_t).EXPECT().DoThing(1, 2)
 		rm, _ := newReflectedMockCall(c)
 		rm.CallReturnEmpty(errTest)
 		// DoThing returns (int, error)
@@ -96,7 +96,7 @@ func TestReflect(t *testing.T) {
 		} {
 			t.Run(tt.name, func(t *testing.T) {
 				is := require.New(t)
-				c := obj.NewMockObj(_t).EXPECT().DoThing(1, 2)
+				c := testdata.NewMockIntyThing(_t).EXPECT().DoThing(1, 2)
 				rm, _ := newReflectedMockCall(c)
 
 				err := rm.CallReturn(tt.withReturn.rets, tt.withReturn.errVal)

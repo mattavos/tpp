@@ -185,10 +185,8 @@ func toReflectValues(args []any, typ reflect.Type) ([]reflect.Value, error) {
 			values[i] = reflect.ValueOf(arg)
 		} else {
 			switch argType.Kind() {
-			case reflect.Interface:
+			case reflect.Interface, reflect.Ptr:
 				values[i] = reflect.Zero(argType)
-			case reflect.Ptr:
-				values[i] = reflect.New(argType.Elem()).Elem()
 			default:
 				return nil, fmt.Errorf(
 					"cannot handle nil for non-interface or non-pointer type: %s",
@@ -273,12 +271,13 @@ func argAssignable(arg reflect.Value, target reflect.Type) bool {
 
 func printArgMismatch(debugName string, fnType reflect.Type, args []reflect.Value) string {
 	var b strings.Builder
-	b.WriteString(fmt.Sprintf("\n%s Return() called with the wrong arguments!\n", debugName))
+	b.WriteString(fmt.Sprintf("\nReturn() called with the wrong arguments!\n"))
+	b.WriteString(fmt.Sprintf("    Function: %s\n", debugName))
 
 	numIn := fnType.NumIn()
 
 	// Expected signature
-	b.WriteString("  Expected: (")
+	b.WriteString("    Expected: (")
 	for i := 0; i < numIn; i++ {
 		if i > 0 {
 			b.WriteString(", ")
@@ -292,7 +291,7 @@ func printArgMismatch(debugName string, fnType reflect.Type, args []reflect.Valu
 	b.WriteString(")\n")
 
 	// Actual signature
-	b.WriteString("  Received: (")
+	b.WriteString("    Received: (")
 	for i := 0; i < len(args); i++ {
 		if i > 0 {
 			b.WriteString(", ")
@@ -304,6 +303,7 @@ func printArgMismatch(debugName string, fnType reflect.Type, args []reflect.Valu
 		}
 	}
 	b.WriteString(")\n")
+	b.WriteString("\n")
 
 	return b.String()
 }
