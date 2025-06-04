@@ -54,7 +54,7 @@ func TestXXX(t *testing.T) {
 	}{
 		{
 			name:    "OK",
-			getFoo:  tpp.OK("foo"),
+			getFoo:  tpp.Return("foo", nil),
 			wantErr: false
 		},
 		{

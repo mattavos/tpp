@@ -16,7 +16,7 @@ Here's a template for writing such tests:
 		}{
 			{
 				name:    "OK",
-				getFoo:  tpp.OK("foo"),
+				getFoo:  tpp.Return("foo", nil),
 				wantErr: false
 			},
 			{
