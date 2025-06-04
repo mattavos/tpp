@@ -45,7 +45,7 @@ func TestExpectWithMockeryMockIntyThing(t *testing.T) {
 		require.True(t, isCallOptional(c))
 	})
 
-	t.Run("Return() setups up return", func(t *testing.T) {
+	t.Run("Return() sets up return", func(t *testing.T) {
 		m := testdata.NewMockIntyThing(_t)
 		c := m.EXPECT().DoThing(1, 2)
 
@@ -65,7 +65,7 @@ func TestExpectWithMockeryMockIntyThing(t *testing.T) {
 		require.False(t, isCallOptional(c))
 	})
 
-	t.Run("OK() setups up return", func(t *testing.T) {
+	t.Run("OK() sets up return", func(t *testing.T) {
 		m := testdata.NewMockIntyThing(_t)
 		c := m.EXPECT().DoThing(1, 2)
 
@@ -85,7 +85,7 @@ func TestExpectWithMockeryMockIntyThing(t *testing.T) {
 		require.False(t, isCallOptional(c))
 	})
 
-	t.Run("Err() setups up err return", func(t *testing.T) {
+	t.Run("Err() sets up err return", func(t *testing.T) {
 		m := testdata.NewMockIntyThing(_t)
 		c := m.EXPECT().DoThing(1, 2)
 
@@ -108,7 +108,7 @@ func TestExpectWithMockeryMockIntyThing(t *testing.T) {
 		require.False(t, isCallOptional(c))
 	})
 
-	t.Run("ErrWith() setups up err return", func(t *testing.T) {
+	t.Run("ErrWith() sets up err return", func(t *testing.T) {
 		m := testdata.NewMockIntyThing(_t)
 		c := m.EXPECT().DoThing(1, 2)
 
@@ -128,7 +128,7 @@ func TestExpectWithMockeryMockIntyThing(t *testing.T) {
 		require.False(t, isCallOptional(c))
 	})
 
-	t.Run("Given().Return() setups up args and return: no err", func(t *testing.T) {
+	t.Run("Given().Return() sets up args and return: no err", func(t *testing.T) {
 		m := testdata.NewMockIntyThing(_t)
 		c := m.EXPECT().DoThing(tpp.Arg(), tpp.Arg())
 
@@ -139,7 +139,7 @@ func TestExpectWithMockeryMockIntyThing(t *testing.T) {
 		require.Equal(t, toArgs(789, error(nil)), c.ReturnArguments)
 	})
 
-	t.Run("Given().Return() setups up args and return: err", func(t *testing.T) {
+	t.Run("Given().Return() sets up args and return: err", func(t *testing.T) {
 		m := testdata.NewMockIntyThing(_t)
 		c := m.EXPECT().DoThing(tpp.Arg(), tpp.Arg())
 
@@ -150,7 +150,7 @@ func TestExpectWithMockeryMockIntyThing(t *testing.T) {
 		require.Equal(t, toArgs(789, errTest), c.ReturnArguments)
 	})
 
-	t.Run("Given().Return() setups up args with mock.Anything", func(t *testing.T) {
+	t.Run("Given().Return() sets up args with mock.Anything", func(t *testing.T) {
 		m := testdata.NewMockIntyThing(_t)
 		c := m.EXPECT().DoThing(tpp.Arg(), tpp.Arg())
 
@@ -219,6 +219,16 @@ func TestExpectWithMockeryMockIntyThing(t *testing.T) {
 		c := m.EXPECT().DoThing(tpp.Arg(), tpp.Arg())
 
 		e := tpp.OK( /* provided by injection */ )
+		e.Injecting(123).Expectorise(c)
+
+		require.Equal(t, toArgs(123, error(nil)), c.ReturnArguments)
+	})
+
+	t.Run("Injecting() works with zero value Expect", func(t *testing.T) {
+		m := testdata.NewMockIntyThing(_t)
+		c := m.EXPECT().DoThing(tpp.Arg(), tpp.Arg())
+
+		var e tpp.Expect
 		e.Injecting(123).Expectorise(c)
 
 		require.Equal(t, toArgs(123, error(nil)), c.ReturnArguments)
@@ -326,7 +336,7 @@ func TestExpectMultiWithMockeryMockIntyThing(t *testing.T) {
 		require.Empty(t, m.ExpectedCalls)
 	})
 
-	t.Run("Return() setups up calls", func(t *testing.T) {
+	t.Run("Return() sets up calls", func(t *testing.T) {
 		m := testdata.NewMockIntyThing(_t)
 		ee := []tpp.Expect{
 			tpp.Return(123, nil),
@@ -373,7 +383,7 @@ func TestExpectMultiWithMockeryMockIntyThing(t *testing.T) {
 		}
 	})
 
-	t.Run("OK() setups up calls", func(t *testing.T) {
+	t.Run("OK() sets up calls", func(t *testing.T) {
 		m := testdata.NewMockIntyThing(_t)
 		ee := []tpp.Expect{
 			tpp.OK(123),
@@ -422,7 +432,7 @@ func TestExpectMultiWithMockeryMockIntyThing(t *testing.T) {
 		}
 	})
 
-	t.Run("Err() setups up err returns", func(t *testing.T) {
+	t.Run("Err() sets up err returns", func(t *testing.T) {
 		m := testdata.NewMockIntyThing(_t)
 		ee := []tpp.Expect{
 			tpp.Err(),
@@ -473,7 +483,7 @@ func TestExpectMultiWithMockeryMockIntyThing(t *testing.T) {
 		}
 	})
 
-	t.Run("ErrWith() setups up err returns", func(t *testing.T) {
+	t.Run("ErrWith() sets up err returns", func(t *testing.T) {
 		var (
 			errOne   = errors.New("one")
 			errTwo   = errors.New("two")
@@ -525,7 +535,7 @@ func TestExpectMultiWithMockeryMockIntyThing(t *testing.T) {
 		}
 	})
 
-	t.Run("Given().Return() setups up args and return", func(t *testing.T) {
+	t.Run("Given().Return() sets up args and return", func(t *testing.T) {
 		m := testdata.NewMockIntyThing(_t)
 		ee := []tpp.Expect{
 			tpp.Given(1, 1).Return(1, nil),
@@ -551,7 +561,7 @@ func TestExpectMultiWithMockeryMockIntyThing(t *testing.T) {
 		is.Equal(toArgs(3, nil), m.ExpectedCalls[2].ReturnArguments)
 	})
 
-	t.Run("Given().Return() setups up args and return: errors", func(t *testing.T) {
+	t.Run("Given().Return() sets up args and return: errors", func(t *testing.T) {
 		m := testdata.NewMockIntyThing(_t)
 		ee := []tpp.Expect{
 			tpp.Given(1, 1).Return(1, errTest),
@@ -763,7 +773,7 @@ func TestExpectWithMockeryMockStructyThing(t *testing.T) {
 		require.True(t, isCallOptional(c))
 	})
 
-	t.Run("Return() setups up return", func(t *testing.T) {
+	t.Run("Return() sets up return", func(t *testing.T) {
 		c := testdata.NewMockStructyThing(_t).
 			EXPECT().DoThing(context.TODO(), s1)
 
@@ -783,7 +793,7 @@ func TestExpectWithMockeryMockStructyThing(t *testing.T) {
 		require.False(t, isCallOptional(c))
 	})
 
-	t.Run("OK() setups up return", func(t *testing.T) {
+	t.Run("OK() sets up return", func(t *testing.T) {
 		c := testdata.NewMockStructyThing(_t).
 			EXPECT().DoThing(context.TODO(), s1)
 
@@ -803,7 +813,7 @@ func TestExpectWithMockeryMockStructyThing(t *testing.T) {
 		require.False(t, isCallOptional(c))
 	})
 
-	t.Run("Err() setups up err return", func(t *testing.T) {
+	t.Run("Err() sets up err return", func(t *testing.T) {
 		c := testdata.NewMockStructyThing(_t).
 			EXPECT().DoThing(context.TODO(), s1)
 
@@ -826,7 +836,7 @@ func TestExpectWithMockeryMockStructyThing(t *testing.T) {
 		require.False(t, isCallOptional(c))
 	})
 
-	t.Run("ErrWith() setups up err return", func(t *testing.T) {
+	t.Run("ErrWith() sets up err return", func(t *testing.T) {
 		c := testdata.NewMockStructyThing(_t).
 			EXPECT().DoThing(context.TODO(), s1)
 
@@ -846,7 +856,7 @@ func TestExpectWithMockeryMockStructyThing(t *testing.T) {
 		require.False(t, isCallOptional(c))
 	})
 
-	t.Run("Given().Return() setups up args and return: no err", func(t *testing.T) {
+	t.Run("Given().Return() sets up args and return: no err", func(t *testing.T) {
 		ctx := context.TODO()
 		c := testdata.NewMockStructyThing(_t).
 			EXPECT().DoThing(tpp.Arg(), tpp.Arg())
@@ -858,7 +868,7 @@ func TestExpectWithMockeryMockStructyThing(t *testing.T) {
 		require.Equal(t, toArgs(s2, error(nil)), c.ReturnArguments)
 	})
 
-	t.Run("Given().Return() setups up args and return: err", func(t *testing.T) {
+	t.Run("Given().Return() sets up args and return: err", func(t *testing.T) {
 		ctx := context.TODO()
 		c := testdata.NewMockStructyThing(_t).
 			EXPECT().DoThing(tpp.Arg(), tpp.Arg())
@@ -870,7 +880,7 @@ func TestExpectWithMockeryMockStructyThing(t *testing.T) {
 		require.Equal(t, toArgs((*testdata.Struct)(nil), errTest), c.ReturnArguments)
 	})
 
-	t.Run("Given().Return() setups up args with mock.Anything", func(t *testing.T) {
+	t.Run("Given().Return() sets up args with mock.Anything", func(t *testing.T) {
 		ctx := context.TODO()
 		c := testdata.NewMockStructyThing(_t).
 			EXPECT().DoThing(tpp.Arg(), tpp.Arg())
@@ -941,6 +951,16 @@ func TestExpectWithMockeryMockStructyThing(t *testing.T) {
 			EXPECT().DoThing(context.TODO(), s1)
 
 		e := tpp.OK( /* provided by injection */ )
+		e.Injecting(s2).Expectorise(c)
+
+		require.Equal(t, toArgs(s2, error(nil)), c.ReturnArguments)
+	})
+
+	t.Run("Injecting() works with zero value Expect", func(t *testing.T) {
+		c := testdata.NewMockStructyThing(_t).
+			EXPECT().DoThing(context.TODO(), s1)
+
+		var e tpp.Expect
 		e.Injecting(s2).Expectorise(c)
 
 		require.Equal(t, toArgs(s2, error(nil)), c.ReturnArguments)
@@ -1063,7 +1083,7 @@ func TestExpectMultiWithMockeryMockStructyThing(t *testing.T) {
 		require.Empty(t, m.ExpectedCalls)
 	})
 
-	t.Run("Return() setups up calls", func(t *testing.T) {
+	t.Run("Return() sets up calls", func(t *testing.T) {
 		m := testdata.NewMockStructyThing(_t)
 		ee := []tpp.Expect{
 			tpp.Return(r1, nil),
@@ -1110,7 +1130,7 @@ func TestExpectMultiWithMockeryMockStructyThing(t *testing.T) {
 		}
 	})
 
-	t.Run("OK() setups up calls", func(t *testing.T) {
+	t.Run("OK() sets up calls", func(t *testing.T) {
 		m := testdata.NewMockStructyThing(_t)
 		ee := []tpp.Expect{
 			tpp.OK(r1),
@@ -1157,7 +1177,7 @@ func TestExpectMultiWithMockeryMockStructyThing(t *testing.T) {
 		}
 	})
 
-	t.Run("Err() setups up err returns", func(t *testing.T) {
+	t.Run("Err() sets up err returns", func(t *testing.T) {
 		m := testdata.NewMockStructyThing(_t)
 		ee := []tpp.Expect{
 			tpp.Err(),
@@ -1208,7 +1228,7 @@ func TestExpectMultiWithMockeryMockStructyThing(t *testing.T) {
 		}
 	})
 
-	t.Run("ErrWith() setups up err returns", func(t *testing.T) {
+	t.Run("ErrWith() sets up err returns", func(t *testing.T) {
 		var (
 			errOne   = errors.New("one")
 			errTwo   = errors.New("two")
@@ -1266,7 +1286,7 @@ func TestExpectMultiWithMockeryMockStructyThing(t *testing.T) {
 		}
 	})
 
-	t.Run("Given().Return() setups up args and return", func(t *testing.T) {
+	t.Run("Given().Return() sets up args and return", func(t *testing.T) {
 		m := testdata.NewMockStructyThing(_t)
 		ee := []tpp.Expect{
 			tpp.Given(ctx1, a1).Return(r1, nil),
@@ -1292,7 +1312,7 @@ func TestExpectMultiWithMockeryMockStructyThing(t *testing.T) {
 		is.Equal(toArgs(r3, nil), m.ExpectedCalls[2].ReturnArguments)
 	})
 
-	t.Run("Given().Return() setups up args and return: errors", func(t *testing.T) {
+	t.Run("Given().Return() sets up args and return: errors", func(t *testing.T) {
 		m := testdata.NewMockStructyThing(_t)
 		ee := []tpp.Expect{
 			tpp.Given(ctx1, a1).Return(nil, err1),
@@ -1493,7 +1513,7 @@ func TestExpectWithTestifyMock(t *testing.T) {
 		require.True(t, isCallOptional(c))
 	})
 
-	t.Run("Return() setups up return", func(t *testing.T) {
+	t.Run("Return() sets up return", func(t *testing.T) {
 		c := (&mock.Mock{}).On("Test", 1)
 
 		e := tpp.Return(123)
@@ -1511,7 +1531,7 @@ func TestExpectWithTestifyMock(t *testing.T) {
 		require.False(t, isCallOptional(c))
 	})
 
-	t.Run("OK() setups up return", func(t *testing.T) {
+	t.Run("OK() sets up return", func(t *testing.T) {
 		c := (&mock.Mock{}).On("Test", 1)
 
 		e := tpp.OK(123)
@@ -1529,7 +1549,7 @@ func TestExpectWithTestifyMock(t *testing.T) {
 		require.False(t, isCallOptional(c))
 	})
 
-	t.Run("Err() setups up err return", func(t *testing.T) {
+	t.Run("Err() sets up err return", func(t *testing.T) {
 		c := (&mock.Mock{}).On("Test", 1)
 
 		e := tpp.Err()
@@ -1549,7 +1569,7 @@ func TestExpectWithTestifyMock(t *testing.T) {
 		require.False(t, isCallOptional(c))
 	})
 
-	t.Run("ErrWith() setups up err return", func(t *testing.T) {
+	t.Run("ErrWith() sets up err return", func(t *testing.T) {
 		c := (&mock.Mock{}).On("Test", 1)
 
 		withErr := errors.New("Everything exploded")
@@ -1572,7 +1592,7 @@ func TestExpectWithTestifyMock(t *testing.T) {
 		require.False(t, isCallOptional(c))
 	})
 
-	t.Run("Given().Return() setups up args and return", func(t *testing.T) {
+	t.Run("Given().Return() sets up args and return", func(t *testing.T) {
 		c := (&mock.Mock{}).On("Test", tpp.Arg())
 
 		e := tpp.Given(123).Return(456)
@@ -1582,7 +1602,7 @@ func TestExpectWithTestifyMock(t *testing.T) {
 		require.Equal(t, toArgs(456), c.ReturnArguments)
 	})
 
-	t.Run("Given().Return() setups up multiple args and return", func(t *testing.T) {
+	t.Run("Given().Return() sets up multiple args and return", func(t *testing.T) {
 		c := (&mock.Mock{}).On("Test", tpp.Arg(), tpp.Arg(), tpp.Arg())
 
 		e := tpp.Given(1, 2, 3).Return(456, errTest)
@@ -1723,7 +1743,7 @@ func TestExpectMultiWithTestifyMock(t *testing.T) {
 		require.Empty(t, m.ExpectedCalls)
 	})
 
-	t.Run("Return() setups up calls", func(t *testing.T) {
+	t.Run("Return() sets up calls", func(t *testing.T) {
 		m := &mock.Mock{}
 		ee := []tpp.Expect{
 			tpp.Return(123),
@@ -1768,7 +1788,7 @@ func TestExpectMultiWithTestifyMock(t *testing.T) {
 		}
 	})
 
-	t.Run("OK() setups up calls", func(t *testing.T) {
+	t.Run("OK() sets up calls", func(t *testing.T) {
 		m := &mock.Mock{}
 		ee := []tpp.Expect{
 			tpp.OK(123),
@@ -1813,7 +1833,7 @@ func TestExpectMultiWithTestifyMock(t *testing.T) {
 		}
 	})
 
-	t.Run("Err() setups up err returns", func(t *testing.T) {
+	t.Run("Err() sets up err returns", func(t *testing.T) {
 		m := &mock.Mock{}
 		ee := []tpp.Expect{
 			tpp.Err(),
@@ -1861,7 +1881,7 @@ func TestExpectMultiWithTestifyMock(t *testing.T) {
 		}
 	})
 
-	t.Run("ErrWith() setups up err returns", func(t *testing.T) {
+	t.Run("ErrWith() sets up err returns", func(t *testing.T) {
 		var (
 			errOne   = errors.New("one")
 			errTwo   = errors.New("two")
@@ -1911,7 +1931,7 @@ func TestExpectMultiWithTestifyMock(t *testing.T) {
 		}
 	})
 
-	t.Run("Given().Return() setups up args and return", func(t *testing.T) {
+	t.Run("Given().Return() sets up args and return", func(t *testing.T) {
 		m := &mock.Mock{}
 		ee := []tpp.Expect{
 			tpp.Given(1).Return("one"),
@@ -1937,7 +1957,7 @@ func TestExpectMultiWithTestifyMock(t *testing.T) {
 		is.Equal(toArgs("three"), m.ExpectedCalls[2].ReturnArguments)
 	})
 
-	t.Run("Given().Return() setups up multiple args and return", func(t *testing.T) {
+	t.Run("Given().Return() sets up multiple args and return", func(t *testing.T) {
 		var (
 			errOne   = errors.New("one")
 			errTwo   = errors.New("two")

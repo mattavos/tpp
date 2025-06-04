@@ -47,9 +47,10 @@ import (
 // Return returns an Expect with the given return values.
 func Return(returns ...any) Expect {
 	return Expect{
-		Expected: ptr(true),
-		Return:   returns,
-		Err:      nil,
+		Expected:    ptr(true),
+		Return:      returns,
+		Err:         nil,
+		exactReturn: true,
 	}
 }
 
@@ -58,9 +59,11 @@ func Return(returns ...any) Expect {
 // Any error values on mockery mocks will be automatically zero valued once the
 // Expect is passed to Expectorise.
 func OK(returns ...any) Expect {
-	e := Return(returns...)
-	e.ok = true
-	return e
+	return Expect{
+		Expected: ptr(true),
+		Return:   returns,
+		Err:      nil,
+	}
 }
 
 // Err returns an Expect with a generic test error.
@@ -103,6 +106,7 @@ func (c *callBuilder) Return(returns ...any) Expect {
 		Expected:        ptr(true),
 		ArgReplacements: c.args,
 		Return:          returns,
+		exactReturn:     true,
 	}
 }
 
@@ -173,12 +177,21 @@ type Expect struct {
 	// of times.
 	NTimes int
 
-	// ok indicates that the expect was created with OK(), and we should zero out
-	// any errors in the return.
-	ok bool
-
-	// TODO: breaking change: move Err into an "err" field.
+	// exactReturn determines that the mock should be configured to return exactly
+	// what is specified by Return, and not have errors zero-valued out if
+	// unspecified. This is here temporarily to support Return() and
+	// Given(xxx).Return(yyy), while also maintaining backwards compatibility,
+	// since e.g., OK() implicitly zeroes out errors. This isn't the preferred way
+	// of doing things, so we'll move towards being more explicit.
 	//
+	// TODO: tidy this up. OK() and Err() are fine and useful, but callers have
+	// relied on the zeroing-error behaviour for raw Expect{Return: xxx}s and after
+	// messing with Expect.Return. We should discourage (or make impossible?) both
+	// of those things in a future breaking change-- I think Expects fields should
+	// be unexported. Then this can become something like `zeroOutErrors` and be
+	// set by OK().
+	exactReturn bool
+
 	// Err determines the error which will be appended to the mock's returns.
 	// If it is nil, no error will be appended.
 	//
@@ -194,10 +207,10 @@ type Expect struct {
 // meta-test.
 func (e *Expect) Injecting(ret any) *Expect {
 	return &Expect{
-		Expected: e.Expected,
-		Return:   append(e.Return, ret),
-		Err:      e.Err,
-		ok:       e.ok,
+		Expected:    e.Expected,
+		Return:      append(e.Return, ret),
+		Err:         e.Err,
+		exactReturn: e.exactReturn,
 	}
 }
 
@@ -310,7 +323,7 @@ func (e *Expect) Expectorise(mock MockCall, options ...func(*expectoriseOption))
 
 	switch {
 	case e.Return != nil:
-		err := rmock.CallReturn(e.Return, e.Err, e.ok)
+		err := rmock.CallReturn(e.Return, e.Err, !e.exactReturn)
 		if err != nil {
 			panic(err)
 		}
