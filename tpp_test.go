@@ -943,6 +943,445 @@ func TestExpectWithMockeryMockStructyThing(t *testing.T) {
 	})
 }
 
+// We're testing using a mockery mock of an interface which looks like this:
+//
+//	type StructyThing interface {
+//		DoThing(context.Context, *Struct) (*Struct, error)
+//	}
+func TestExpectMultiWithMockeryMockStructyThing(t *testing.T) {
+	var (
+		_t   = &testing.T{} // dummy testing.T for passing into code under test
+		ctx1 = context.WithValue(context.Background(), "key", 1)
+		ctx2 = context.WithValue(context.Background(), "key", 2)
+		ctx3 = context.WithValue(context.Background(), "key", 3)
+		a1   = &testdata.Struct{A: 1, B: 1}
+		a2   = &testdata.Struct{A: 2, B: 2}
+		a3   = &testdata.Struct{A: 3, B: 3}
+		args = []*testdata.Struct{a1, a2, a3}
+		r1   = &testdata.Struct{A: 1, B: 2}
+		r2   = &testdata.Struct{A: 10, B: 20}
+		r3   = &testdata.Struct{A: 100, B: 200}
+		err1 = errors.New("1")
+		err2 = errors.New("2")
+		err3 = errors.New("3")
+	)
+
+	t.Run("Zero value gets empty return", func(t *testing.T) {
+		m := testdata.NewMockStructyThing(_t)
+		var ee []tpp.Expect
+
+		tpp.ExpectoriseMulti(ee, func() tpp.MockCall {
+			return m.EXPECT().DoThing(tpp.Arg(), tpp.Arg())
+		})
+
+		require.Len(t, m.ExpectedCalls, 1)
+		for _, a := range m.ExpectedCalls[0].ReturnArguments {
+			require.Empty(t, a)
+		}
+	})
+
+	t.Run("Zero value is Maybe()d", func(t *testing.T) {
+		m := testdata.NewMockStructyThing(_t)
+		var ee []tpp.Expect
+
+		tpp.ExpectoriseMulti(ee, func() tpp.MockCall {
+			return m.EXPECT().DoThing(tpp.Arg(), tpp.Arg())
+		})
+
+		require.Len(t, m.ExpectedCalls, 1)
+		require.True(t, isCallOptional(m.ExpectedCalls[0]))
+	})
+
+	t.Run("Empty unsets mock", func(t *testing.T) {
+		m := testdata.NewMockStructyThing(_t)
+		ee := []tpp.Expect{
+			/* No expectations */
+		}
+
+		tpp.ExpectoriseMulti(ee, func() tpp.MockCall {
+			return m.EXPECT().DoThing(tpp.Arg(), tpp.Arg())
+		})
+
+		require.Empty(t, m.ExpectedCalls)
+	})
+
+	t.Run("Return() setups up calls", func(t *testing.T) {
+		m := testdata.NewMockStructyThing(_t)
+		ee := []tpp.Expect{
+			tpp.Return(r1, nil),
+			tpp.Return(r2, nil),
+			tpp.Return(r3, nil),
+		}
+
+		i := 0
+		tpp.ExpectoriseMulti(ee, func() tpp.MockCall {
+			defer func() { i++ }()
+			return m.EXPECT().DoThing(ctx1, args[i])
+		})
+
+		is := require.New(t)
+		is.Len(m.ExpectedCalls, 3)
+
+		is.Equal(toArgs(ctx1, args[0]), m.ExpectedCalls[0].Arguments)
+		is.Equal(toArgs(r1, nil), m.ExpectedCalls[0].ReturnArguments)
+
+		is.Equal(toArgs(ctx1, args[1]), m.ExpectedCalls[1].Arguments)
+		is.Equal(toArgs(r2, nil), m.ExpectedCalls[1].ReturnArguments)
+
+		is.Equal(toArgs(ctx1, args[2]), m.ExpectedCalls[2].Arguments)
+		is.Equal(toArgs(r3, nil), m.ExpectedCalls[2].ReturnArguments)
+	})
+
+	t.Run("Return() calls aren't Maybe()d", func(t *testing.T) {
+		m := testdata.NewMockStructyThing(_t)
+		ee := []tpp.Expect{
+			tpp.Return(r1, nil),
+			tpp.Return(r2, nil),
+			tpp.Return(r3, nil),
+		}
+
+		tpp.ExpectoriseMulti(ee, func() tpp.MockCall {
+			return m.EXPECT().DoThing(context.TODO(), r1)
+		})
+
+		is := require.New(t)
+
+		is.Len(m.ExpectedCalls, 3)
+		for _, c := range m.ExpectedCalls {
+			require.False(t, isCallOptional(c))
+		}
+	})
+
+	t.Run("OK() setups up calls", func(t *testing.T) {
+		m := testdata.NewMockStructyThing(_t)
+		ee := []tpp.Expect{
+			tpp.OK(r1),
+			tpp.OK(r2),
+			tpp.OK(r3),
+		}
+
+		i := 0
+		tpp.ExpectoriseMulti(ee, func() tpp.MockCall {
+			defer func() { i++ }()
+			return m.EXPECT().DoThing(ctx1, args[i])
+		})
+
+		is := require.New(t)
+		is.Len(m.ExpectedCalls, 3)
+
+		is.Equal(toArgs(ctx1, args[0]), m.ExpectedCalls[0].Arguments)
+		is.Equal(toArgs(r1, nil), m.ExpectedCalls[0].ReturnArguments)
+
+		is.Equal(toArgs(ctx1, args[1]), m.ExpectedCalls[1].Arguments)
+		is.Equal(toArgs(r2, nil), m.ExpectedCalls[1].ReturnArguments)
+
+		is.Equal(toArgs(ctx1, args[2]), m.ExpectedCalls[2].Arguments)
+		is.Equal(toArgs(r3, nil), m.ExpectedCalls[2].ReturnArguments)
+	})
+
+	t.Run("OK() calls aren't Maybe()d", func(t *testing.T) {
+		m := testdata.NewMockStructyThing(_t)
+		ee := []tpp.Expect{
+			tpp.OK(r1),
+			tpp.OK(r2),
+			tpp.OK(r3),
+		}
+
+		tpp.ExpectoriseMulti(ee, func() tpp.MockCall {
+			return m.EXPECT().DoThing(context.TODO(), r1)
+		})
+
+		is := require.New(t)
+
+		is.Len(m.ExpectedCalls, 3)
+		for _, c := range m.ExpectedCalls {
+			require.False(t, isCallOptional(c))
+		}
+	})
+
+	t.Run("Err() setups up err returns", func(t *testing.T) {
+		m := testdata.NewMockStructyThing(_t)
+		ee := []tpp.Expect{
+			tpp.Err(),
+			tpp.Err(),
+			tpp.Err(),
+		}
+
+		i := 0
+		tpp.ExpectoriseMulti(ee, func() tpp.MockCall {
+			defer func() { i++ }()
+			return m.EXPECT().DoThing(ctx1, args[i])
+		})
+
+		is := require.New(t)
+		is.Len(m.ExpectedCalls, 3)
+
+		is.Equal(toArgs(ctx1, args[0]), m.ExpectedCalls[0].Arguments)
+		is.Empty(m.ExpectedCalls[0].ReturnArguments[0])
+		_, ok := m.ExpectedCalls[0].ReturnArguments[1].(error)
+		is.True(ok)
+
+		is.Equal(toArgs(ctx1, args[1]), m.ExpectedCalls[1].Arguments)
+		is.Empty(m.ExpectedCalls[1].ReturnArguments[0])
+		_, ok = m.ExpectedCalls[1].ReturnArguments[1].(error)
+		is.True(ok)
+
+		is.Equal(toArgs(ctx1, args[2]), m.ExpectedCalls[2].Arguments)
+		is.Empty(m.ExpectedCalls[1].ReturnArguments[0])
+		_, ok = m.ExpectedCalls[2].ReturnArguments[1].(error)
+		is.True(ok)
+	})
+
+	t.Run("Err() returns aren't Maybe()d", func(t *testing.T) {
+		m := testdata.NewMockStructyThing(_t)
+		ee := []tpp.Expect{
+			tpp.Err(),
+			tpp.Err(),
+			tpp.Err(),
+		}
+
+		tpp.ExpectoriseMulti(ee, func() tpp.MockCall {
+			return m.EXPECT().DoThing(context.TODO(), r1)
+		})
+
+		require.Len(t, m.ExpectedCalls, 3)
+		for _, c := range m.ExpectedCalls {
+			require.False(t, isCallOptional(c))
+		}
+	})
+
+	t.Run("ErrWith() setups up err returns", func(t *testing.T) {
+		var (
+			errOne   = errors.New("one")
+			errTwo   = errors.New("two")
+			errThree = errors.New("three")
+		)
+		m := testdata.NewMockStructyThing(_t)
+		ee := []tpp.Expect{
+			tpp.ErrWith(errOne),
+			tpp.ErrWith(errTwo),
+			tpp.ErrWith(errThree),
+		}
+
+		i := 0
+		tpp.ExpectoriseMulti(ee, func() tpp.MockCall {
+			defer func() { i++ }()
+			return m.EXPECT().DoThing(ctx1, args[i])
+		})
+
+		is := require.New(t)
+		is.Len(m.ExpectedCalls, 3)
+
+		is.Equal(toArgs(ctx1, args[0]), m.ExpectedCalls[0].Arguments)
+		is.Empty(m.ExpectedCalls[0].ReturnArguments[0])
+		_, ok := m.ExpectedCalls[0].ReturnArguments[1].(error)
+		is.True(ok)
+
+		is.Equal(toArgs(ctx1, args[1]), m.ExpectedCalls[1].Arguments)
+		is.Empty(m.ExpectedCalls[1].ReturnArguments[0])
+		_, ok = m.ExpectedCalls[1].ReturnArguments[1].(error)
+		is.True(ok)
+
+		is.Equal(toArgs(ctx1, args[2]), m.ExpectedCalls[2].Arguments)
+		is.Empty(m.ExpectedCalls[1].ReturnArguments[0])
+		_, ok = m.ExpectedCalls[2].ReturnArguments[1].(error)
+		is.True(ok)
+	})
+
+	t.Run("ErrWith() returns aren't Maybe()d", func(t *testing.T) {
+		m := testdata.NewMockStructyThing(_t)
+		ee := []tpp.Expect{
+			tpp.ErrWith(errors.New("one")),
+			tpp.ErrWith(errors.New("two")),
+			tpp.ErrWith(errors.New("three")),
+		}
+
+		i := 0
+		tpp.ExpectoriseMulti(ee, func() tpp.MockCall {
+			defer func() { i++ }()
+			return m.EXPECT().DoThing(context.TODO(), args[i])
+		})
+
+		require.Len(t, m.ExpectedCalls, 3)
+		for _, c := range m.ExpectedCalls {
+			require.False(t, isCallOptional(c))
+		}
+	})
+
+	t.Run("Given().Return() setups up args and return", func(t *testing.T) {
+		m := testdata.NewMockStructyThing(_t)
+		ee := []tpp.Expect{
+			tpp.Given(ctx1, a1).Return(r1, nil),
+			tpp.Given(ctx2, a2).Return(r2, nil),
+			tpp.Given(ctx3, a3).Return(r3, nil),
+		}
+
+		tpp.ExpectoriseMulti(ee, func() tpp.MockCall {
+			return m.EXPECT().DoThing(tpp.Arg(), tpp.Arg())
+		})
+
+		is := require.New(t)
+
+		is.Len(m.ExpectedCalls, 3)
+
+		is.Equal(toArgs(ctx1, a1), m.ExpectedCalls[0].Arguments)
+		is.Equal(toArgs(r1, nil), m.ExpectedCalls[0].ReturnArguments)
+
+		is.Equal(toArgs(ctx2, a2), m.ExpectedCalls[1].Arguments)
+		is.Equal(toArgs(r2, nil), m.ExpectedCalls[1].ReturnArguments)
+
+		is.Equal(toArgs(ctx3, a3), m.ExpectedCalls[2].Arguments)
+		is.Equal(toArgs(r3, nil), m.ExpectedCalls[2].ReturnArguments)
+	})
+
+	t.Run("Given().Return() setups up args and return: errors", func(t *testing.T) {
+		m := testdata.NewMockStructyThing(_t)
+		ee := []tpp.Expect{
+			tpp.Given(ctx1, a1).Return(nil, err1),
+			tpp.Given(ctx2, a2).Return(nil, err2),
+			tpp.Given(ctx3, a3).Return(nil, err3),
+		}
+
+		tpp.ExpectoriseMulti(ee, func() tpp.MockCall {
+			return m.EXPECT().DoThing(tpp.Arg(), tpp.Arg())
+		})
+
+		is := require.New(t)
+
+		is.Len(m.ExpectedCalls, 3)
+
+		is.Equal(toArgs(ctx1, a1), m.ExpectedCalls[0].Arguments)
+		is.Equal(toArgs((*testdata.Struct)(nil), err1), m.ExpectedCalls[0].ReturnArguments)
+
+		is.Equal(toArgs(ctx2, a2), m.ExpectedCalls[1].Arguments)
+		is.Equal(toArgs((*testdata.Struct)(nil), err2), m.ExpectedCalls[1].ReturnArguments)
+
+		is.Equal(toArgs(ctx3, a3), m.ExpectedCalls[2].Arguments)
+		is.Equal(toArgs((*testdata.Struct)(nil), err3), m.ExpectedCalls[2].ReturnArguments)
+	})
+
+	t.Run("Given().Return() is not Maybe()d", func(t *testing.T) {
+		m := testdata.NewMockStructyThing(_t)
+		ee := []tpp.Expect{
+			tpp.Given(ctx1, a1).Return(r1, nil),
+			tpp.Given(ctx2, a2).Return(r2, nil),
+			tpp.Given(ctx3, a3).Return(r3, nil),
+		}
+
+		tpp.ExpectoriseMulti(ee, func() tpp.MockCall {
+			return m.EXPECT().DoThing(tpp.Arg(), tpp.Arg())
+		})
+
+		require.Len(t, m.ExpectedCalls, 3)
+		for _, c := range m.ExpectedCalls {
+			require.False(t, isCallOptional(c))
+		}
+	})
+
+	t.Run("Unexpected() unsets mock", func(t *testing.T) {
+		m := testdata.NewMockStructyThing(_t)
+		ee := []tpp.Expect{
+			tpp.Unexpected(),
+		}
+
+		tpp.ExpectoriseMulti(ee, func() tpp.MockCall {
+			return m.EXPECT().DoThing(tpp.Arg(), tpp.Arg())
+		})
+
+		require.Empty(t, m.ExpectedCalls)
+	})
+
+	t.Run("Once() sets repeatability", func(t *testing.T) {
+		m := testdata.NewMockStructyThing(_t)
+		ee := []tpp.Expect{
+			tpp.Given(ctx1, a1).Return(r1, nil).Once(),
+			tpp.Given(ctx2, a2).Return(r2, nil).Once(),
+			tpp.Given(ctx3, a3).Return(r3, nil).Once(),
+		}
+
+		tpp.ExpectoriseMulti(ee, func() tpp.MockCall {
+			return m.EXPECT().DoThing(tpp.Arg(), tpp.Arg())
+		})
+
+		require.Len(t, m.ExpectedCalls, 3)
+		for _, c := range m.ExpectedCalls {
+			require.Equal(t, 1, c.Repeatability)
+		}
+	})
+
+	t.Run("Times() sets repeatability", func(t *testing.T) {
+		m := testdata.NewMockStructyThing(_t)
+		ee := []tpp.Expect{
+			tpp.Given(ctx1, a1).Return(r1, nil).Times(1),
+			tpp.Given(ctx2, a2).Return(r2, nil).Times(2),
+			tpp.Given(ctx3, a3).Return(r3, nil).Times(3),
+		}
+
+		tpp.ExpectoriseMulti(ee, func() tpp.MockCall {
+			return m.EXPECT().DoThing(tpp.Arg(), tpp.Arg())
+		})
+
+		require.Len(t, m.ExpectedCalls, 3)
+		for i, c := range m.ExpectedCalls {
+			require.Equal(t, i+1, c.Repeatability)
+		}
+	})
+
+	t.Run("WithDefaultReturns() adds to return if Expect empty", func(t *testing.T) {
+		m := testdata.NewMockStructyThing(_t)
+
+		var ee []tpp.Expect
+
+		tpp.ExpectoriseMulti(ee, func() tpp.MockCall {
+			return m.EXPECT().DoThing(tpp.Arg(), tpp.Arg())
+		}, tpp.WithDefaultReturns(r1, errTest))
+
+		require.Len(t, m.ExpectedCalls, 1)
+		require.Equal(t, mock.Arguments([]any{r1, errTest}), m.ExpectedCalls[0].ReturnArguments)
+	})
+
+	t.Run("WithDefaultReturns() adds to return only if Expect empty", func(t *testing.T) {
+		m := testdata.NewMockStructyThing(_t)
+
+		ee := []tpp.Expect{
+			tpp.Return(r1, nil),
+		}
+		tpp.ExpectoriseMulti(ee, func() tpp.MockCall {
+			return m.EXPECT().DoThing(tpp.Arg(), tpp.Arg())
+		}, tpp.WithDefaultReturns(r2, errTest))
+
+		require.Len(t, m.ExpectedCalls, 1)
+		require.Equal(t, mock.Arguments([]any{r1, nil}), m.ExpectedCalls[0].ReturnArguments)
+	})
+
+	t.Run("WithDefaultReturns() adds to return only if Expect empty (Err)", func(t *testing.T) {
+		m := testdata.NewMockStructyThing(_t)
+
+		ee := []tpp.Expect{
+			tpp.Err(),
+		}
+		tpp.ExpectoriseMulti(ee, func() tpp.MockCall {
+			return m.EXPECT().DoThing(tpp.Arg(), tpp.Arg())
+		}, tpp.WithDefaultReturns(r1, error(nil)))
+
+		require.Empty(t, m.ExpectedCalls[0].ReturnArguments[0])
+		_, ok := m.ExpectedCalls[0].ReturnArguments[1].(error)
+		require.True(t, ok)
+	})
+
+	t.Run("WithDefaultReturns() causes panic if wrong number of args", func(t *testing.T) {
+		m := testdata.NewMockIntyThing(_t)
+
+		var ee []tpp.Expect
+
+		require.Panics(t, func() {
+			tpp.ExpectoriseMulti(ee, func() tpp.MockCall {
+				return m.EXPECT().DoThing(r1, nil)
+			}, tpp.WithDefaultReturns(r1, r2, r3))
+		})
+	})
+}
+
 // These tests check the behaviour of Expectorise when it's passed a "bare"
 // not-wrapped mock.Call, such as you get from mock.On("Foo", xxx, yyy).
 //

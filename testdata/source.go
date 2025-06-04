@@ -16,7 +16,3 @@ type Struct struct {
 type StructyThing interface {
 	DoThing(context.Context, *Struct) (*Struct, error)
 }
-
-type EmptyThing interface {
-	DoThing()
-}
