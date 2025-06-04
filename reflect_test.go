@@ -77,7 +77,7 @@ func TestReflect(t *testing.T) {
 		for _, tt := range []struct {
 			name       string
 			withReturn ret
-			wantErr    bool
+			wantPanic  bool
 		}{
 			{name: "OK: ret 42,nil", withReturn: ret{rets: []any{42, nil}}},
 			{name: "OK: ret 0,nil", withReturn: ret{rets: []any{0, nil}}},
@@ -86,12 +86,12 @@ func TestReflect(t *testing.T) {
 			{
 				name:       "ERR: not enough returns",
 				withReturn: ret{rets: []any{}},
-				wantErr:    true,
+				wantPanic:  true,
 			},
 			{
 				name:       "ERR: too many returns",
 				withReturn: ret{rets: []any{1, 2, 3}},
-				wantErr:    true,
+				wantPanic:  true,
 			},
 		} {
 			t.Run(tt.name, func(t *testing.T) {
@@ -99,10 +99,13 @@ func TestReflect(t *testing.T) {
 				c := testdata.NewMockIntyThing(_t).EXPECT().DoThing(1, 2)
 				rm, _ := newReflectedMockCall(c)
 
-				err := rm.CallReturn(tt.withReturn.rets, nil, false)
-				is.Equal(tt.wantErr, err != nil)
-
-				if !tt.wantErr {
+				call := func() {
+					rm.CallReturn(tt.withReturn.rets, nil, false)
+				}
+				if tt.wantPanic {
+					is.Panics(call)
+				} else {
+					call()
 					is.Equal(mock.Arguments(tt.withReturn.rets), c.ReturnArguments)
 				}
 			})

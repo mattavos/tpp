@@ -125,8 +125,6 @@ func (rm *reflectedMockCall) CallReturnEmpty(retErr error) {
 		}
 	}
 
-	rm.mustArgMatch(returnType, emptyArgs)
-
 	rm.returnMethod.Call(emptyArgs)
 }
 
@@ -154,14 +152,12 @@ func (rm *reflectedMockCall) CallReturn(args []any, retErr error, zeroValueErrs 
 		}
 	}
 
+	rm.mustArgMatch(returnType, returnArgs)
+
 	rargs, err := toReflectValues(returnArgs, returnType)
 	if err != nil {
 		return fmt.Errorf("toReflectValues failed to transform return values: %s", err)
 	}
-
-	// TODO: toReflectValues can panic, so we should check before then and check any...
-	// It's unlikely that ReturnEmpty will be problematic
-	rm.mustArgMatch(returnType, rargs)
 
 	rm.returnMethod.Call(rargs)
 	return nil
@@ -212,14 +208,15 @@ func toReflectValues(args []any, typ reflect.Type) ([]reflect.Value, error) {
 // -----------------------------------------------------------------------------
 
 // mustArgMatch panics with a helpful message if the args don't match the type.
-func (rm *reflectedMockCall) mustArgMatch(fnType reflect.Type, args []reflect.Value) {
+func (rm *reflectedMockCall) mustArgMatch(fnType reflect.Type, args []any) {
 	if !argsMatch(fnType, args) {
-		panic(printArgMismatch(reflect.ValueOf(rm.wrapped).String(), fnType, args))
+		fn := reflect.ValueOf(rm.wrapped).String()
+		panic(printArgMismatch(fn, fnType, args))
 	}
 }
 
 // argsMatch returns whether the args match the given function type.
-func argsMatch(fnType reflect.Type, args []reflect.Value) bool {
+func argsMatch(fnType reflect.Type, args []any) bool {
 	if fnType.Kind() != reflect.Func {
 		return false
 	}
@@ -257,9 +254,9 @@ func argsMatch(fnType reflect.Type, args []reflect.Value) bool {
 	return true
 }
 
-func argAssignable(arg reflect.Value, target reflect.Type) bool {
-	if !arg.IsValid() {
-		// Invalid value = nil; only assignable to nillable types
+func argAssignable(arg any, target reflect.Type) bool {
+	if arg == nil {
+		// only assignable to nillable types
 		kind := target.Kind()
 		return kind == reflect.Interface ||
 			kind == reflect.Ptr ||
@@ -268,10 +265,10 @@ func argAssignable(arg reflect.Value, target reflect.Type) bool {
 			kind == reflect.Func ||
 			kind == reflect.Chan
 	}
-	return arg.Type().AssignableTo(target)
+	return reflect.TypeOf(arg).AssignableTo(target)
 }
 
-func printArgMismatch(debugName string, fnType reflect.Type, args []reflect.Value) string {
+func printArgMismatch(debugName string, fnType reflect.Type, args []any) string {
 	var b strings.Builder
 	b.WriteString(fmt.Sprintf("\nReturn() called with the wrong arguments!\n"))
 	b.WriteString(fmt.Sprintf("    Function: %s\n", debugName))
@@ -298,10 +295,10 @@ func printArgMismatch(debugName string, fnType reflect.Type, args []reflect.Valu
 		if i > 0 {
 			b.WriteString(", ")
 		}
-		if !args[i].IsValid() {
+		if args[i] == nil {
 			b.WriteString("invalid")
 		} else {
-			b.WriteString(args[i].Type().String())
+			b.WriteString(reflect.TypeOf(args[i]).String())
 		}
 	}
 	b.WriteString(")\n")
