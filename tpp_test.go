@@ -160,6 +160,20 @@ func TestExpectWithMockeryMockIntyThing(t *testing.T) {
 		require.Equal(t, toArgs(123, mock.Anything), c.Arguments)
 	})
 
+	t.Run("Given().Return() can handle tpp.Arg() injection", func(t *testing.T) {
+		// tpp.Arg() can be used to signify that the value will be filled in later
+		// by the meta-test.
+		e := tpp.Given(tpp.Arg(), 456).Return(789, errTest)
+
+		m := testdata.NewMockIntyThing(_t)
+		c := m.EXPECT().DoThing(12345, tpp.Arg())
+
+		e.Expectorise(c)
+
+		require.Equal(t, toArgs(12345, 456), c.Arguments)
+		require.Equal(t, toArgs(789, errTest), c.ReturnArguments)
+	})
+
 	t.Run("Given().Return() is not Maybe()d", func(t *testing.T) {
 		m := testdata.NewMockIntyThing(_t)
 		c := m.EXPECT().DoThing(tpp.Arg(), tpp.Arg())
@@ -563,6 +577,35 @@ func TestExpectMultiWithMockeryMockIntyThing(t *testing.T) {
 		is.Equal(toArgs(3, errTest), m.ExpectedCalls[2].ReturnArguments)
 	})
 
+	t.Run("Given().Return() can handle tpp.Arg() injection", func(t *testing.T) {
+		// tpp.Arg() can be used to signify that the value will be filled in later
+		// by the meta-test.
+		ee := []tpp.Expect{
+			tpp.Given(tpp.Arg(), 1).Return(1, errTest),
+			tpp.Given(tpp.Arg(), 2).Return(2, errTest),
+			tpp.Given(tpp.Arg(), 3).Return(3, errTest),
+		}
+
+		m := testdata.NewMockIntyThing(_t)
+
+		tpp.ExpectoriseMulti(ee, func() tpp.MockCall {
+			return m.EXPECT().DoThing(42, tpp.Arg())
+		})
+
+		is := require.New(t)
+
+		is.Len(m.ExpectedCalls, 3)
+
+		is.Equal(toArgs(42, 1), m.ExpectedCalls[0].Arguments)
+		is.Equal(toArgs(1, errTest), m.ExpectedCalls[0].ReturnArguments)
+
+		is.Equal(toArgs(42, 2), m.ExpectedCalls[1].Arguments)
+		is.Equal(toArgs(2, errTest), m.ExpectedCalls[1].ReturnArguments)
+
+		is.Equal(toArgs(42, 3), m.ExpectedCalls[2].Arguments)
+		is.Equal(toArgs(3, errTest), m.ExpectedCalls[2].ReturnArguments)
+	})
+
 	t.Run("Given().Return() is not Maybe()d", func(t *testing.T) {
 		m := testdata.NewMockIntyThing(_t)
 		ee := []tpp.Expect{
@@ -597,9 +640,9 @@ func TestExpectMultiWithMockeryMockIntyThing(t *testing.T) {
 	t.Run("Once() sets repeatability", func(t *testing.T) {
 		m := testdata.NewMockIntyThing(_t)
 		ee := []tpp.Expect{
-			tpp.Given(1, 1).Return(1).Once(),
-			tpp.Given(2, 2).Return(2).Once(),
-			tpp.Given(3, 3).Return(3).Once(),
+			tpp.Given(1, 1).Return(1, nil).Once(),
+			tpp.Given(2, 2).Return(2, nil).Once(),
+			tpp.Given(3, 3).Return(3, nil).Once(),
 		}
 
 		tpp.ExpectoriseMulti(ee, func() tpp.MockCall {
@@ -615,9 +658,9 @@ func TestExpectMultiWithMockeryMockIntyThing(t *testing.T) {
 	t.Run("Times() sets repeatability", func(t *testing.T) {
 		m := testdata.NewMockIntyThing(_t)
 		ee := []tpp.Expect{
-			tpp.Given(1, 1).Return(1).Times(1),
-			tpp.Given(2, 2).Return(2).Times(2),
-			tpp.Given(3, 3).Return(3).Times(3),
+			tpp.Given(1, 1).Return(1, nil).Times(1),
+			tpp.Given(2, 2).Return(2, nil).Times(2),
+			tpp.Given(3, 3).Return(3, nil).Times(3),
 		}
 
 		tpp.ExpectoriseMulti(ee, func() tpp.MockCall {
@@ -836,6 +879,21 @@ func TestExpectWithMockeryMockStructyThing(t *testing.T) {
 		e.Expectorise(c)
 
 		require.Equal(t, toArgs(ctx, mock.Anything), c.Arguments)
+	})
+
+	t.Run("Given().Return() can handle tpp.Arg() injection", func(t *testing.T) {
+		// tpp.Arg() can be used to signify that the value will be filled in later
+		// by the meta-test.
+		e := tpp.Given(tpp.Arg(), s1).Return(s2, nil)
+
+		ctx := context.TODO()
+		c := testdata.NewMockStructyThing(_t).
+			EXPECT().DoThing(ctx, tpp.Arg())
+
+		e.Expectorise(c)
+
+		require.Equal(t, toArgs(ctx, s1), c.Arguments)
+		require.Equal(t, toArgs(s2, nil), c.ReturnArguments)
 	})
 
 	t.Run("Given().Return() is not Maybe()d", func(t *testing.T) {
@@ -1260,6 +1318,35 @@ func TestExpectMultiWithMockeryMockStructyThing(t *testing.T) {
 		is.Equal(toArgs((*testdata.Struct)(nil), err3), m.ExpectedCalls[2].ReturnArguments)
 	})
 
+	t.Run("Given().Return() can handle tpp.Arg() injection", func(t *testing.T) {
+		// tpp.Arg() can be used to signify that the value will be filled in later
+		// by the meta-test.
+		ee := []tpp.Expect{
+			tpp.Given(tpp.Arg(), a1).Return(nil, err1),
+			tpp.Given(tpp.Arg(), a2).Return(nil, err2),
+			tpp.Given(tpp.Arg(), a3).Return(nil, err3),
+		}
+
+		ctx := context.TODO()
+		m := testdata.NewMockStructyThing(_t)
+
+		tpp.ExpectoriseMulti(ee, func() tpp.MockCall {
+			return m.EXPECT().DoThing(ctx, tpp.Arg())
+		})
+
+		is := require.New(t)
+		is.Len(m.ExpectedCalls, 3)
+
+		is.Equal(toArgs(ctx, a1), m.ExpectedCalls[0].Arguments)
+		is.Equal(toArgs((*testdata.Struct)(nil), err1), m.ExpectedCalls[0].ReturnArguments)
+
+		is.Equal(toArgs(ctx, a2), m.ExpectedCalls[1].Arguments)
+		is.Equal(toArgs((*testdata.Struct)(nil), err2), m.ExpectedCalls[1].ReturnArguments)
+
+		is.Equal(toArgs(ctx, a3), m.ExpectedCalls[2].Arguments)
+		is.Equal(toArgs((*testdata.Struct)(nil), err3), m.ExpectedCalls[2].ReturnArguments)
+	})
+
 	t.Run("Given().Return() is not Maybe()d", func(t *testing.T) {
 		m := testdata.NewMockStructyThing(_t)
 		ee := []tpp.Expect{
@@ -1502,6 +1589,19 @@ func TestExpectWithTestifyMock(t *testing.T) {
 		e.Expectorise(c)
 
 		require.Equal(t, toArgs(1, 2, 3), c.Arguments)
+		require.Equal(t, toArgs(456, errTest), c.ReturnArguments)
+	})
+
+	t.Run("Given().Return() can handle tpp.Arg() injection", func(t *testing.T) {
+		// tpp.Arg() can be used to signify that the value will be filled in later
+		// by the meta-test.
+		e := tpp.Given(tpp.Arg(), 1).Return(456, errTest)
+
+		c := (&mock.Mock{}).On("Test", 123, tpp.Arg())
+
+		e.Expectorise(c)
+
+		require.Equal(t, toArgs(123, 1), c.Arguments)
 		require.Equal(t, toArgs(456, errTest), c.ReturnArguments)
 	})
 
@@ -1866,6 +1966,34 @@ func TestExpectMultiWithTestifyMock(t *testing.T) {
 
 		is.Equal(toArgs(7, 8, 9), m.ExpectedCalls[2].Arguments)
 		is.Equal(toArgs("three", errThree), m.ExpectedCalls[2].ReturnArguments)
+	})
+
+	t.Run("Given().Return() can handle tpp.Arg() injection", func(t *testing.T) {
+		// tpp.Arg() can be used to signify that the value will be filled in later
+		// by the meta-test.
+		ee := []tpp.Expect{
+			tpp.Given(tpp.Arg(), 2, 3).Return("one"),
+			tpp.Given(tpp.Arg(), 5, 6).Return("two"),
+			tpp.Given(tpp.Arg(), 8, 9).Return("three"),
+		}
+
+		m := &mock.Mock{}
+		tpp.ExpectoriseMulti(ee, func() tpp.MockCall {
+			return m.On("Test", "injected", tpp.Arg(), tpp.Arg())
+		})
+
+		is := require.New(t)
+
+		is.Len(m.ExpectedCalls, 3)
+
+		is.Equal(toArgs("injected", 2, 3), m.ExpectedCalls[0].Arguments)
+		is.Equal(toArgs("one"), m.ExpectedCalls[0].ReturnArguments)
+
+		is.Equal(toArgs("injected", 5, 6), m.ExpectedCalls[1].Arguments)
+		is.Equal(toArgs("two"), m.ExpectedCalls[1].ReturnArguments)
+
+		is.Equal(toArgs("injected", 8, 9), m.ExpectedCalls[2].Arguments)
+		is.Equal(toArgs("three"), m.ExpectedCalls[2].ReturnArguments)
 	})
 
 	t.Run("Given().Return() is not Maybe()d", func(t *testing.T) {

@@ -55,9 +55,12 @@ func Return(returns ...any) Expect {
 
 // OK returns an Expect with the given return and no error.
 //
-// Any error values on mockery mocks will be automatically zero valued.
+// Any error values on mockery mocks will be automatically zero valued once the
+// Expect is passed to Expectorise.
 func OK(returns ...any) Expect {
-	return Return(returns...)
+	e := Return(returns...)
+	e.ok = true
+	return e
 }
 
 // Err returns an Expect with a generic test error.
@@ -103,19 +106,33 @@ func (c *callBuilder) Return(returns ...any) Expect {
 	}
 }
 
-// Arg represents an argument placeholder that will be filled in when the Expect
-// is Expectorised. This is used in conjunction with tpp.Given(xxx).Return(yyy)
-// to allow for dynamic mocking.
+// Arg represents an argument placeholder to be used with tpp.Given(). This can
+// be used in two ways.
+//
+// First, if specified as part of a mock call's arguments, it will be filled in
+// when the Expect Expectorises the mock. This is used in conjunction with
+// tpp.Given(xxx).Return(yyy) to allow for dynamic mocking.
 //
 // For example, a tpp.Expect that's set up like so:
 //
-//	expectFoo := tpp.With("foo", 1).Return(xyz)
+//	expectFoo: tpp.Given("foo", 1).Return(xyz)
 //
 // Should be Expectorised like this:
 //
 //	expectFoo.Expectorise(mymock.EXPECT().Foo(tpp.Arg(), tpp.Arg()))
 //
 // The "foo" and 1 will then be injected in the place of the tpp.Arg()s.
+//
+// Secondly, if specified as part of an Expect's args it can stand as a
+// placeholder argument that will be filled in by the meta-test body.
+//
+// For example, a tpp.Expect that's set up like so:
+//
+//	expectFoo: tpp.Given(tpp.Arg(), 1).Return(xyz)
+//
+// Can be Expectorised like this:
+//
+//	expectFoo.Expectorise(mymock.EXPECT().Foo(whateverYouWant, tpp.Arg()))
 func Arg() templateArg {
 	return templateArg{}
 }
@@ -143,20 +160,30 @@ type Expect struct {
 	// See tpp.Arg() for more info.
 	ArgReplacements []any
 
-	// Return are the *non-error* returns for the mock.
+	// Return are the return arguments for the mock.
 	//
-	// If you want an error to be returned, place it in Expect.Err.
+	// In some cases, these can be incomplete. For example, if the Expect is
+	// created by OK(), only non-error returns will be specified and the errors
+	// will be zeroed out during Expectorise. Similarly, if the Expect is created
+	// by Err(), only the Err field will be set and the non-error returns will be
+	// zeroed out.
 	Return []any
 
+	// NTimes indicates that the mock should only return the indicated number
+	// of times.
+	NTimes int
+
+	// ok indicates that the expect was created with OK(), and we should zero out
+	// any errors in the return.
+	ok bool
+
+	// TODO: breaking change: move Err into an "err" field.
+	//
 	// Err determines the error which will be appended to the mock's returns.
 	// If it is nil, no error will be appended.
 	//
 	// This is separated out from `Return` for convenience and readability.
 	Err error
-
-	// NTimes indicates that the mock should only return the indicated number
-	// of times.
-	NTimes int
 }
 
 // Injecting returns a new Expect with the given |ret| injected into its Return.
@@ -170,6 +197,7 @@ func (e *Expect) Injecting(ret any) *Expect {
 		Expected: e.Expected,
 		Return:   append(e.Return, ret),
 		Err:      e.Err,
+		ok:       e.ok,
 	}
 }
 
@@ -249,12 +277,6 @@ func (e *Expect) Expectorise(mock MockCall, options ...func(*expectoriseOption))
 		mock.Times(e.NTimes)
 	}
 
-	// TODO: because of lack of type safety, people are going to both:
-	//   (a) pass in the wrong number of arguments/returns, and
-	//   (b) pass in the wrong type of arguments/returns
-	// especially due to refactoring code. We need to make sure that the
-	// errors one gets back in these two cases are exeptionally helpful.
-
 	rmock, err := newReflectedMockCall(mock)
 	if err != nil {
 		panic(err)
@@ -268,20 +290,16 @@ func (e *Expect) Expectorise(mock MockCall, options ...func(*expectoriseOption))
 			panic(err)
 		}
 
-		// TODO: panic with a helpful message if e.Args is set but none
-		// of the rmock arguments are templateArgs. This is a mistake!
-
 		var newargs []any
-		var idx int
-		for _, arg := range args {
+		for i, arg := range args {
 			if _, ok := arg.(templateArg); ok {
-				if idx >= len(e.ArgReplacements) {
+				if i >= len(e.ArgReplacements) {
 					// We've ran out of args: this happens if we specified an error in the
 					// Expect and the test still put a placeholder in. All good.
 					newargs = append(newargs, testifymock.Anything)
 				} else {
-					newargs = append(newargs, e.ArgReplacements[idx])
-					idx++
+					newargs = append(newargs, e.ArgReplacements[i])
+					i++
 				}
 			} else {
 				newargs = append(newargs, arg)
@@ -292,7 +310,7 @@ func (e *Expect) Expectorise(mock MockCall, options ...func(*expectoriseOption))
 
 	switch {
 	case e.Return != nil:
-		err := rmock.CallReturn(e.Return, e.Err)
+		err := rmock.CallReturn(e.Return, e.Err, e.ok)
 		if err != nil {
 			panic(err)
 		}
@@ -301,7 +319,7 @@ func (e *Expect) Expectorise(mock MockCall, options ...func(*expectoriseOption))
 		rmock.CallReturnEmpty(e.Err)
 
 	case opts.defaultReturns != nil:
-		err := rmock.CallReturn(opts.defaultReturns, nil)
+		err := rmock.CallReturn(opts.defaultReturns, nil, false)
 		if err != nil {
 			panic(err)
 		}
@@ -355,7 +373,7 @@ func ExpectoriseMulti(ee []Expect, callFn func() MockCall, options ...func(*expe
 			panic(err)
 		}
 		if opts.defaultReturns != nil {
-			err := rmock.CallReturn(opts.defaultReturns, nil)
+			err := rmock.CallReturn(opts.defaultReturns, nil, false)
 			if err != nil {
 				panic(err)
 			}

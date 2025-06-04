@@ -133,7 +133,7 @@ func (rm *reflectedMockCall) CallReturnEmpty(retErr error) {
 // CallReturn calls the mock's Return method with the given args.
 //
 // If an optional retErr is provided, we will use that for error values.
-func (rm *reflectedMockCall) CallReturn(args []any, retErr error) error {
+func (rm *reflectedMockCall) CallReturn(args []any, retErr error, zeroValueErrs bool) error {
 	var (
 		returnType = rm.returnMethod.Type()
 		returnLen  = returnType.NumIn()
@@ -143,7 +143,7 @@ func (rm *reflectedMockCall) CallReturn(args []any, retErr error) error {
 	if retErr != nil {
 		// We were given an error to return -- use it!
 		returnArgs = append(returnArgs, retErr)
-	} else {
+	} else if zeroValueErrs {
 		// Add a nil error, if applicable
 		for i := len(args); i < returnLen; i++ {
 			if returnType.In(i).Name() == "error" {
@@ -159,6 +159,8 @@ func (rm *reflectedMockCall) CallReturn(args []any, retErr error) error {
 		return fmt.Errorf("toReflectValues failed to transform return values: %s", err)
 	}
 
+	// TODO: toReflectValues can panic, so we should check before then and check any...
+	// It's unlikely that ReturnEmpty will be problematic
 	rm.mustArgMatch(returnType, rargs)
 
 	rm.returnMethod.Call(rargs)

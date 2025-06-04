@@ -79,10 +79,10 @@ func TestReflect(t *testing.T) {
 			withReturn ret
 			wantErr    bool
 		}{
-			{name: "OK: ret 42,nil", withReturn: ret{rets: []any{42}, errVal: nil}},
-			{name: "OK: ret 0,nil", withReturn: ret{rets: []any{0}, errVal: nil}},
-			{name: "OK: ret 1,err", withReturn: ret{rets: []any{1}, errVal: errTest}},
-			{name: "OK: ret 0,err", withReturn: ret{rets: []any{0}, errVal: errTest}},
+			{name: "OK: ret 42,nil", withReturn: ret{rets: []any{42, nil}}},
+			{name: "OK: ret 0,nil", withReturn: ret{rets: []any{0, nil}}},
+			{name: "OK: ret 1,err", withReturn: ret{rets: []any{1, errTest}}},
+			{name: "OK: ret 0,err", withReturn: ret{rets: []any{0, errTest}}},
 			{
 				name:       "ERR: not enough returns",
 				withReturn: ret{rets: []any{}},
@@ -99,13 +99,11 @@ func TestReflect(t *testing.T) {
 				c := testdata.NewMockIntyThing(_t).EXPECT().DoThing(1, 2)
 				rm, _ := newReflectedMockCall(c)
 
-				err := rm.CallReturn(tt.withReturn.rets, tt.withReturn.errVal)
+				err := rm.CallReturn(tt.withReturn.rets, nil, false)
 				is.Equal(tt.wantErr, err != nil)
 
 				if !tt.wantErr {
-					returns := append([]any{}, tt.withReturn.rets...)
-					returns = append(returns, tt.withReturn.errVal)
-					is.Equal(mock.Arguments(returns), c.ReturnArguments)
+					is.Equal(mock.Arguments(tt.withReturn.rets), c.ReturnArguments)
 				}
 			})
 		}
