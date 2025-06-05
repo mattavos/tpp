@@ -64,11 +64,11 @@ type reflectedMockCall struct {
 	returnMethod reflect.Value
 }
 
-// GetArguents returns the mock's arguments.
+// GetArguments returns the mock's arguments.
 //
 // This is just a getter for mock.Arguments. We need this because we want to get
 // the arguments but an interface like tpp.MockCall can't specify field values
-// in Golang.
+// in Go.
 func (rm *reflectedMockCall) GetArguments() ([]any, error) {
 	result := make([]any, rm.args.Len())
 
@@ -79,11 +79,11 @@ func (rm *reflectedMockCall) GetArguments() ([]any, error) {
 	return result, nil
 }
 
-// GetArguents returns the mock's arguments.
+// GetArguments returns the mock's arguments.
 //
 // This is just a setter for mock.Arguments. We need this because we want to set
 // the arguments but an interface like tpp.MockCall can't specify field values
-// in Golang.
+// in Go.
 func (rm *reflectedMockCall) SetArguments(args []any) {
 	newSlice := reflect.MakeSlice(rm.args.Type(), len(args), len(args))
 
