@@ -295,31 +295,29 @@ func (e *Expect) Expectorise(mock MockCall, options ...func(*expectoriseOption))
 		panic(err)
 	}
 
-	if e.Expected != nil && *e.Expected {
-		// Replace any args that have been specified with tpp.Arg() with the args
-		// specified on the Expect.
-		args, err := rmock.GetArguments()
-		if err != nil {
-			panic(err)
-		}
-
-		var newargs []any
-		for i, arg := range args {
-			if _, ok := arg.(templateArg); ok {
-				if i >= len(e.ArgReplacements) {
-					// We've ran out of args: this happens if we specified an error in the
-					// Expect and the test still put a placeholder in. All good.
-					newargs = append(newargs, testifymock.Anything)
-				} else {
-					newargs = append(newargs, e.ArgReplacements[i])
-					i++
-				}
-			} else {
-				newargs = append(newargs, arg)
-			}
-		}
-		rmock.SetArguments(newargs)
+	// Replace any args that have been specified with tpp.Arg() with the args
+	// specified on the Expect.
+	args, err := rmock.GetArguments()
+	if err != nil {
+		panic(err)
 	}
+	var newargs []any
+	for i, arg := range args {
+		if _, ok := arg.(templateArg); ok {
+			if i >= len(e.ArgReplacements) {
+				// We've ran out of supplied args. This happens commonly, since the
+				// Expect might be empty or an error, but the test-body specifies
+				// a tpp.Arg() for the mock arguments. Fall back to mock.Anything.
+				newargs = append(newargs, testifymock.Anything)
+			} else {
+				newargs = append(newargs, e.ArgReplacements[i])
+				i++
+			}
+		} else {
+			newargs = append(newargs, arg)
+		}
+	}
+	rmock.SetArguments(newargs)
 
 	switch {
 	case e.Return != nil:
@@ -376,7 +374,8 @@ func ExpectoriseMulti(ee []Expect, callFn func() MockCall, options ...func(*expe
 		o(&opts)
 	}
 
-	// If there are no Expects in the slice, then set up an empty/default return.
+	// If there are no Expects in the slice, then set up a mock which accepts
+	// anything and will return an empty/default return.
 	if ee == nil {
 		call := callFn()
 		call.Maybe()
@@ -385,6 +384,23 @@ func ExpectoriseMulti(ee []Expect, callFn func() MockCall, options ...func(*expe
 		if err != nil {
 			panic(err)
 		}
+
+		// Replace tpp.Arg()s with mock.Anything.
+		args, err := rmock.GetArguments()
+		if err != nil {
+			panic(err)
+		}
+		var newargs []any
+		for _, arg := range args {
+			if _, ok := arg.(templateArg); ok {
+				newargs = append(newargs, testifymock.Anything)
+			} else {
+				newargs = append(newargs, arg)
+			}
+		}
+		rmock.SetArguments(newargs)
+
+		// Return either the specified default, or empty.
 		if opts.defaultReturns != nil {
 			err := rmock.CallReturn(opts.defaultReturns, nil, false)
 			if err != nil {

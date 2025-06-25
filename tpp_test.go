@@ -234,6 +234,17 @@ func TestExpectWithMockeryMockIntyThing(t *testing.T) {
 		require.Equal(t, toArgs(123, error(nil)), c.ReturnArguments)
 	})
 
+	t.Run("Arg() gets replaced with mock.Anything for empty expects", func(t *testing.T) {
+		var e tpp.Expect
+
+		m := testdata.NewMockIntyThing(_t)
+		c := m.EXPECT().DoThing(tpp.Arg(), tpp.Arg())
+
+		e.Expectorise(c, tpp.WithDefaultReturns(123, errTest))
+
+		require.Equal(t, toArgs(mock.Anything, mock.Anything), c.Arguments)
+	})
+
 	t.Run("WithDefaultReturns() adds to return if Expect empty", func(t *testing.T) {
 		m := testdata.NewMockIntyThing(_t)
 		c := m.EXPECT().DoThing(1, 2)
@@ -683,6 +694,22 @@ func TestExpectMultiWithMockeryMockIntyThing(t *testing.T) {
 		}
 	})
 
+	t.Run("Arg() gets replaced with mock.Anything for empty expects", func(t *testing.T) {
+		m := testdata.NewMockIntyThing(_t)
+
+		var ee []tpp.Expect
+
+		tpp.ExpectoriseMulti(ee, func() tpp.MockCall {
+			return m.EXPECT().DoThing(tpp.Arg(), tpp.Arg())
+		}, tpp.WithDefaultReturns(1, errTest))
+
+		require.Len(t, m.ExpectedCalls, 1)
+		require.Len(t, m.ExpectedCalls[0].Arguments, 2)
+		for _, arg := range m.ExpectedCalls[0].Arguments {
+			require.Equal(t, mock.Anything, arg)
+		}
+	})
+
 	t.Run("WithDefaultReturns() adds to return if Expect empty", func(t *testing.T) {
 		m := testdata.NewMockIntyThing(_t)
 
@@ -964,6 +991,17 @@ func TestExpectWithMockeryMockStructyThing(t *testing.T) {
 		e.Injecting(s2).Expectorise(c)
 
 		require.Equal(t, toArgs(s2, error(nil)), c.ReturnArguments)
+	})
+
+	t.Run("Arg() gets replaced with mock.Anything for empty expects", func(t *testing.T) {
+		var e tpp.Expect
+
+		c := testdata.NewMockStructyThing(_t).
+			EXPECT().DoThing(tpp.Arg(), tpp.Arg())
+
+		e.Expectorise(c, tpp.WithDefaultReturns(s2, errTest))
+
+		require.Equal(t, toArgs(mock.Anything, mock.Anything), c.Arguments)
 	})
 
 	t.Run("WithDefaultReturns() adds to return if Expect empty", func(t *testing.T) {
@@ -1434,6 +1472,22 @@ func TestExpectMultiWithMockeryMockStructyThing(t *testing.T) {
 		}
 	})
 
+	t.Run("Arg() gets replaced with mock.Anything for empty expects", func(t *testing.T) {
+		m := testdata.NewMockStructyThing(_t)
+
+		var ee []tpp.Expect
+
+		tpp.ExpectoriseMulti(ee, func() tpp.MockCall {
+			return m.EXPECT().DoThing(tpp.Arg(), tpp.Arg())
+		}, tpp.WithDefaultReturns(r1, errTest))
+
+		require.Len(t, m.ExpectedCalls, 1)
+		require.Len(t, m.ExpectedCalls[0].Arguments, 2)
+		for _, arg := range m.ExpectedCalls[0].Arguments {
+			require.Equal(t, mock.Anything, arg)
+		}
+	})
+
 	t.Run("WithDefaultReturns() adds to return if Expect empty", func(t *testing.T) {
 		m := testdata.NewMockStructyThing(_t)
 
@@ -1669,6 +1723,15 @@ func TestExpectWithTestifyMock(t *testing.T) {
 		e.Injecting(456).Expectorise(c)
 
 		require.Equal(t, mock.Arguments(mock.Arguments{123, 456}), c.ReturnArguments)
+	})
+
+	t.Run("Arg() gets replaced with mock.Anything for empty expects", func(t *testing.T) {
+		c := (&mock.Mock{}).On("Test", tpp.Arg())
+
+		var e tpp.Expect
+		e.Expectorise(c, tpp.WithDefaultReturns(123, errTest))
+
+		require.Equal(t, toArgs(mock.Anything), c.Arguments)
 	})
 
 	t.Run("WithDefaultReturns() adds to return if Expect empty", func(t *testing.T) {
@@ -2081,6 +2144,19 @@ func TestExpectMultiWithTestifyMock(t *testing.T) {
 		for i, c := range m.ExpectedCalls {
 			require.Equal(t, i+1, c.Repeatability)
 		}
+	})
+
+	t.Run("Arg() gets replaced with mock.Anything for empty expects", func(t *testing.T) {
+		m := &mock.Mock{}
+
+		var ee []tpp.Expect
+		tpp.ExpectoriseMulti(ee, func() tpp.MockCall {
+			return m.On("Test", tpp.Arg())
+		}, tpp.WithDefaultReturns(1, 2, 3))
+
+		require.Len(t, m.ExpectedCalls, 1)
+		require.Len(t, m.ExpectedCalls[0].Arguments, 1)
+		require.Equal(t, mock.Anything, m.ExpectedCalls[0].Arguments[0])
 	})
 
 	t.Run("WithDefaultReturns() adds to return if Expect empty", func(t *testing.T) {
