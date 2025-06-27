@@ -182,14 +182,18 @@ func toReflectValues(args []any, typ reflect.Type) ([]reflect.Value, error) {
 		if arg != nil {
 			values[i] = reflect.ValueOf(arg)
 		} else {
+			// Iff the arg type can be nil, use a zero value.
 			switch argType.Kind() {
-			case reflect.Interface, reflect.Ptr:
+			case reflect.Ptr,
+				reflect.Interface,
+				reflect.Slice,
+				reflect.Map,
+				reflect.Chan,
+				reflect.Func,
+				reflect.UnsafePointer:
 				values[i] = reflect.Zero(argType)
 			default:
-				return nil, fmt.Errorf(
-					"cannot handle nil for non-interface or non-pointer type: %s",
-					argType,
-				)
+				return nil, fmt.Errorf("cannot handle nil for type: %s", argType)
 			}
 		}
 	}
