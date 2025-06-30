@@ -181,6 +181,10 @@ func toReflectValues(args []any, typ reflect.Type) ([]reflect.Value, error) {
 
 		if arg != nil {
 			values[i] = reflect.ValueOf(arg)
+		} else if isVariadicAnyReturn(typ) {
+			// The Return function takes (...any). This means we won't be able to
+			// deduce the type. But the argument is nil, so a bare nil will do.
+			values[i] = reflect.Zero(reflect.TypeOf((*any)(nil)).Elem())
 		} else {
 			// Iff the arg type can be nil, use a zero value.
 			switch argType.Kind() {
@@ -309,6 +313,29 @@ func printArgMismatch(debugName string, fnType reflect.Type, args []any) string 
 	b.WriteString("\n")
 
 	return b.String()
+}
+
+// isVariadicAnyReturn returns whether the given type is a function which
+// takes (...any). This is important because e.g., the Return method of the
+// testify call has this signature: func(...interface{}) *mock.Call.
+func isVariadicAnyReturn(t reflect.Type) bool {
+	if t.Kind() != reflect.Func {
+		return false
+	}
+	if !t.IsVariadic() {
+		return false
+	}
+	if t.NumIn() != 1 {
+		return false
+	}
+	in := t.In(0)
+	if in.Kind() != reflect.Slice {
+		return false
+	}
+	if in.Elem().Kind() != reflect.Interface || in.Elem().NumMethod() != 0 {
+		return false
+	}
+	return true
 }
 
 func min(a, b int) int {

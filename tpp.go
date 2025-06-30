@@ -226,17 +226,19 @@ func (e Expect) Once() Expect {
 	return e.Times(1)
 }
 
-// expectoriseOption is used to configure Expectorise and ExpectoriseMulti.
-type expectoriseOption struct {
+// expectoriseOptions is used to configure Expectorise and ExpectoriseMulti.
+type expectoriseOptions struct {
 	defaultReturns []any
 }
+
+type ExpectoriseOption func(*expectoriseOptions)
 
 // WithDefaultReturns sets default returns to be used when configuring the mock.
 //
 // These will be provided instead of zero-value returns where returns are not
 // otherwise provided by the Expect.
-func WithDefaultReturns(returns ...any) func(*expectoriseOption) {
-	return func(opt *expectoriseOption) {
+func WithDefaultReturns(returns ...any) ExpectoriseOption {
+	return func(opt *expectoriseOptions) {
 		opt.defaultReturns = returns
 	}
 }
@@ -270,9 +272,9 @@ type MockCall interface {
 // If Expect.Return is non-nil, Expectorise will configure the mock to return
 // Expect.Return. If Expect.Err is also set, Expectorise will append a non-nil
 // error to the returned values.
-func (e *Expect) Expectorise(mock MockCall, options ...func(*expectoriseOption)) {
+func (e *Expect) Expectorise(mock MockCall, options ...ExpectoriseOption) {
 	// Parse options
-	var opts expectoriseOption
+	var opts expectoriseOptions
 	for _, o := range options {
 		o(&opts)
 	}
@@ -367,9 +369,9 @@ func (e *Expect) Expectorise(mock MockCall, options ...func(*expectoriseOption))
 // An empty slice will result in the mock call being unexpected.
 //
 // For more info, see Expect.Expectorise.
-func ExpectoriseMulti(ee []Expect, callFn func() MockCall, options ...func(*expectoriseOption)) {
+func ExpectoriseMulti(ee []Expect, callFn func() MockCall, options ...ExpectoriseOption) {
 	// Parse options
-	var opts expectoriseOption
+	var opts expectoriseOptions
 	for _, o := range options {
 		o(&opts)
 	}
