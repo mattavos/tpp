@@ -16,12 +16,6 @@ import (
 	"github.com/mattavos/tpp/testdata"
 )
 
-type exampleCall struct {
-	name    string
-	args    []any
-	returns []any
-}
-
 func TestExpect(t *testing.T) {
 	// We use this dummy testing.T to pass into the code under test. We're testing
 	// test code, so we don't want the failed expectations within the code we're
@@ -32,12 +26,16 @@ func TestExpect(t *testing.T) {
 
 	for _, tt := range []struct {
 		name            string
-		expectoriseCall func(e tpp.Expect, args []any, opts ...tpp.ExpectoriseOption) (*testifymock.Call, *testifymock.Mock)
 		argTypes        []string
 		defaultArgs     []any
 		returnTypes     []string
 		defaultReturns  []any
 		examples        []exampleCall
+		expectoriseCall func(
+			e tpp.Expect,
+			args []any,
+			opts ...tpp.ExpectoriseOption,
+		) (*testifymock.Call, *testifymock.Mock)
 	}{
 		{
 			name:           "func(a, b int) (int, error)",
@@ -1904,6 +1902,12 @@ func TestUnexpected(t *testing.T) {
 }
 
 var errTest = errors.New("TEST")
+
+type exampleCall struct {
+	name    string
+	args    []any
+	returns []any
+}
 
 func isCallOptional(call tpp.MockCall) bool {
 	v := reflect.ValueOf(call)
