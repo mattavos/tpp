@@ -4,7 +4,6 @@ import (
 	"context"
 	"fmt"
 	"reflect"
-	"slices"
 	"testing"
 	"unsafe"
 
@@ -339,7 +338,7 @@ func TestExpect(t *testing.T) {
 					})
 				}
 
-				if slices.Contains(tt.returnTypes, "error") {
+				if contains(tt.returnTypes, "error") {
 					t.Run("Err() sets up err return", func(t *testing.T) {
 						call, _ := tt.expectoriseCall(tpp.Err(), tt.defaultArgs)
 
@@ -676,7 +675,7 @@ func TestExpectMulti(t *testing.T) {
 				})
 			}
 
-			if slices.Contains(tt.returnTypes, "error") {
+			if contains(tt.returnTypes, "error") {
 				t.Run("Err() sets up err return", func(t *testing.T) {
 					expects := []tpp.Expect{
 						tpp.Err(),
@@ -1096,4 +1095,14 @@ func must(b bool, reason string) {
 	if !b {
 		panic(fmt.Sprintf("must: %s", reason))
 	}
+}
+
+// contains reports whether v is present in s.
+func contains[S ~[]E, E comparable](s S, v E) bool {
+	for i := range s {
+		if v == s[i] {
+			return true
+		}
+	}
+	return false
 }
