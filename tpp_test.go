@@ -121,6 +121,112 @@ var testStructures = []struct {
 		},
 	},
 	{
+		name:           "func(context.Context, Struct) (Struct, error)",
+		argTypes:       []string{"Context", "Struct"},
+		defaultArgs:    []any{context.Background(), testdata.Struct{A: 1, B: 2}},
+		returnTypes:    []string{"Struct", "error"},
+		defaultReturns: []any{testdata.Struct{A: 1, B: 2}, error(nil)},
+		examples: []exampleCall{
+			{
+				name:    "ok",
+				args:    []any{context.Background(), testdata.Struct{A: 1, B: 2}},
+				returns: []any{testdata.Struct{A: 1, B: 2}, error(nil)},
+			},
+			{
+				name:    "err",
+				args:    []any{context.Background(), testdata.Struct{A: 3, B: 4}},
+				returns: []any{testdata.Struct{}, errTest},
+			},
+		},
+		expectoriseCall: func(expect tpp.Expect, args []any, opts ...tpp.ExpectoriseOption) (*testifymock.Call, *testifymock.Mock) {
+			must(len(args) == 2, "expectoriseCall: wrong arg count")
+			mock := testdata.NewMockConcreteStructyThing(_t())
+			call := mock.EXPECT().DoThing(args[0], args[1])
+			expect.Expectorise(call, opts...)
+			return call.Call, &mock.Mock
+		},
+		expectoriseMulti: func(expects []tpp.Expect, args []any, opts ...tpp.ExpectoriseOption) *testifymock.Mock {
+			must(len(args) == 2, "expectoriseMulti: wrong arg count")
+			mock := testdata.NewMockConcreteStructyThing(_t())
+			tpp.ExpectoriseMulti(expects, func() tpp.MockCall {
+				return mock.EXPECT().DoThing(args[0], args[1])
+			}, opts...)
+			return &mock.Mock
+		},
+	},
+	{
+		name:           "func(context.Context, []int) ([]int, error)",
+		argTypes:       []string{"Context", "[]int"},
+		defaultArgs:    []any{context.Background(), []int{1, 2, 3}},
+		returnTypes:    []string{"[]int", "error"},
+		defaultReturns: []any{[]int{4, 5, 6}, error(nil)},
+		examples: []exampleCall{
+			{
+				name:    "ok",
+				args:    []any{context.Background(), []int{1, 2, 3}},
+				returns: []any{[]int{4, 5, 6}, error(nil)},
+			},
+			{
+				name:    "empty",
+				args:    []any{context.Background(), []int{1, 2, 3}},
+				returns: []any{[]int{}, error(nil)},
+			},
+			{
+				name:    "err",
+				args:    []any{context.Background(), []int{1}},
+				returns: []any{([]int)(nil), errTest},
+			},
+		},
+		expectoriseCall: func(expect tpp.Expect, args []any, opts ...tpp.ExpectoriseOption) (*testifymock.Call, *testifymock.Mock) {
+			must(len(args) == 2, "expectoriseCall: wrong arg count")
+			mock := testdata.NewMockSliceyThing(_t())
+			call := mock.EXPECT().DoThing(args[0], args[1])
+			expect.Expectorise(call, opts...)
+			return call.Call, &mock.Mock
+		},
+		expectoriseMulti: func(expects []tpp.Expect, args []any, opts ...tpp.ExpectoriseOption) *testifymock.Mock {
+			must(len(args) == 2, "expectoriseMulti: wrong arg count")
+			mock := testdata.NewMockSliceyThing(_t())
+			tpp.ExpectoriseMulti(expects, func() tpp.MockCall {
+				return mock.EXPECT().DoThing(args[0], args[1])
+			}, opts...)
+			return &mock.Mock
+		},
+	},
+	{
+		name:           "func()",
+		argTypes:       []string{},
+		defaultArgs:    []any{},
+		returnTypes:    []string{},
+		defaultReturns: []any{},
+		examples: []exampleCall{
+			{
+				name:    "empty",
+				args:    []any{},
+				returns: []any{},
+			},
+		},
+		expectoriseCall: func(expect tpp.Expect, args []any, opts ...tpp.ExpectoriseOption) (*testifymock.Call, *testifymock.Mock) {
+			must(len(args) == 0, "expectoriseCall: wrong arg count")
+			mock := testdata.NewMockEmptyThing(_t())
+			call := mock.EXPECT().DoThing().Return()
+			expect.Expectorise(call, opts...)
+			return call.Call, &mock.Mock
+		},
+		expectoriseMulti: func(expects []tpp.Expect, args []any, opts ...tpp.ExpectoriseOption) *testifymock.Mock {
+			must(len(args) == 0, "expectoriseMulti: wrong arg count")
+			mock := testdata.NewMockEmptyThing(_t())
+			tpp.ExpectoriseMulti(
+				expects,
+				func() tpp.MockCall {
+					return mock.EXPECT().DoThing()
+				},
+				opts...,
+			)
+			return &mock.Mock
+		},
+	},
+	{
 		name: "Testify mock",
 		// These tests check the behaviour of Expectorise when it's passed a "bare"
 		// not-wrapped mock.Call, such as you get from mock.On("Foo", xxx, yyy).
@@ -161,13 +267,13 @@ var testStructures = []struct {
 			},
 		},
 		expectoriseCall: func(expect tpp.Expect, args []any, opts ...tpp.ExpectoriseOption) (*testifymock.Call, *testifymock.Mock) {
-			mock := (&testifymock.Mock{})
+			mock := &testifymock.Mock{}
 			call := mock.On("Test", args...)
 			expect.Expectorise(call, opts...)
 			return call, mock
 		},
 		expectoriseMulti: func(expects []tpp.Expect, args []any, opts ...tpp.ExpectoriseOption) *testifymock.Mock {
-			mock := (&testifymock.Mock{})
+			mock := &testifymock.Mock{}
 			tpp.ExpectoriseMulti(
 				expects,
 				func() tpp.MockCall {
@@ -203,7 +309,7 @@ func TestExpect(t *testing.T) {
 			for _, example := range tt.examples {
 				t.Run("Return() sets up return: "+example.name, func(t *testing.T) {
 					call, _ := tt.expectoriseCall(tpp.Return(example.returns...), tt.defaultArgs)
-					require.Equal(t, toArgs(example.returns...), call.ReturnArguments)
+					requireEqualArgs(t, example.returns, call.ReturnArguments)
 				})
 
 				t.Run("Return() is not Maybe()d: "+example.name, func(t *testing.T) {
@@ -221,7 +327,7 @@ func TestExpect(t *testing.T) {
 							tpp.OK(returnsWithoutErrTypes...),
 							tt.defaultArgs,
 						)
-						require.Equal(t, toArgs(returnsWithNilledErrs...), call.ReturnArguments)
+						requireEqualArgs(t, returnsWithNilledErrs, call.ReturnArguments)
 					})
 
 					t.Run("OK() is not Maybe()d: "+example.name, func(t *testing.T) {
@@ -284,8 +390,8 @@ func TestExpect(t *testing.T) {
 
 						c, _ := tt.expectoriseCall(expect, callArgs)
 
-						require.Equal(t, toArgs(example.args...), c.Arguments)
-						require.Equal(t, toArgs(example.returns...), c.ReturnArguments)
+						requireEqualArgs(t, example.args, c.Arguments)
+						requireEqualArgs(t, example.returns, c.ReturnArguments)
 					})
 
 					t.Run("Given().Return() is not Maybe()d", func(t *testing.T) {
@@ -300,7 +406,7 @@ func TestExpect(t *testing.T) {
 						expect := tpp.Given(args...).Return(example.returns...)
 						call, _ := tt.expectoriseCall(expect, placeholders(len(example.args)))
 
-						require.Equal(t, toArgs(args...), call.Arguments)
+						requireEqualArgs(t, args, call.Arguments)
 					})
 
 					t.Run("Given().Return() can handle tpp.Arg() injection", func(t *testing.T) {
@@ -315,8 +421,8 @@ func TestExpect(t *testing.T) {
 						expect := tpp.Given(expectArgs...).Return(example.returns...)
 						call, _ := tt.expectoriseCall(expect, callArgs)
 
-						require.Equal(t, toArgs(example.args...), call.Arguments)
-						require.Equal(t, toArgs(example.returns...), call.ReturnArguments)
+						requireEqualArgs(t, example.args, call.Arguments)
+						requireEqualArgs(t, example.returns, call.ReturnArguments)
 					})
 				}
 			}
@@ -345,7 +451,7 @@ func TestExpect(t *testing.T) {
 					expect = *expect.Injecting(ret)
 				}
 				call, _ := tt.expectoriseCall(expect, tt.defaultArgs)
-				require.Equal(t, toArgs(tt.defaultReturns...), call.ReturnArguments)
+				requireEqualArgs(t, tt.defaultReturns, call.ReturnArguments)
 			})
 
 			t.Run("Injecting() works with zero value Expect", func(t *testing.T) {
@@ -354,13 +460,13 @@ func TestExpect(t *testing.T) {
 					expect = *expect.Injecting(ret)
 				}
 				call, _ := tt.expectoriseCall(expect, tt.defaultArgs)
-				require.Equal(t, toArgs(tt.defaultReturns...), call.ReturnArguments)
+				requireEqualArgs(t, tt.defaultReturns, call.ReturnArguments)
 			})
 
 			t.Run("Arg() gets replaced with mock.Anything for empty expects", func(t *testing.T) {
 				var expect tpp.Expect
 				call, _ := tt.expectoriseCall(expect, placeholders(len(tt.defaultArgs)))
-				require.Equal(t, toArgs(anythings(len(tt.defaultArgs))...), call.Arguments)
+				requireEqualArgs(t, anythings(len(tt.defaultArgs)), call.Arguments)
 			})
 
 			t.Run("WithDefaultReturns() adds to return if Expect empty", func(t *testing.T) {
@@ -370,7 +476,7 @@ func TestExpect(t *testing.T) {
 					tt.defaultArgs,
 					tpp.WithDefaultReturns(tt.defaultReturns...),
 				)
-				require.Equal(t, toArgs(tt.defaultReturns...), call.ReturnArguments)
+				requireEqualArgs(t, tt.defaultReturns, call.ReturnArguments)
 			})
 
 			t.Run(
@@ -384,7 +490,7 @@ func TestExpect(t *testing.T) {
 						tt.defaultArgs,
 						tpp.WithDefaultReturns(wrong{}),
 					)
-					require.Equal(t, toArgs(tt.defaultReturns...), call.ReturnArguments)
+					requireEqualArgs(t, tt.defaultReturns, call.ReturnArguments)
 				},
 			)
 
@@ -518,7 +624,7 @@ func TestExpectMulti(t *testing.T) {
 
 				require.Len(t, mock.ExpectedCalls, 3)
 				for _, call := range mock.ExpectedCalls {
-					require.Equal(t, toArgs(tt.defaultReturns...), call.ReturnArguments)
+					requireEqualArgs(t, tt.defaultReturns, call.ReturnArguments)
 				}
 			})
 
@@ -551,7 +657,7 @@ func TestExpectMulti(t *testing.T) {
 
 					require.Len(t, mock.ExpectedCalls, 3)
 					for _, call := range mock.ExpectedCalls {
-						require.Equal(t, toArgs(returnsWithNilledErrs...), call.ReturnArguments)
+						requireEqualArgs(t, returnsWithNilledErrs, call.ReturnArguments)
 					}
 				})
 
@@ -652,8 +758,8 @@ func TestExpectMulti(t *testing.T) {
 
 				require.Len(t, mock.ExpectedCalls, 3)
 				for _, call := range mock.ExpectedCalls {
-					require.Equal(t, toArgs(tt.defaultArgs...), call.Arguments)
-					require.Equal(t, toArgs(tt.defaultReturns...), call.ReturnArguments)
+					requireEqualArgs(t, tt.defaultArgs, call.Arguments)
+					requireEqualArgs(t, tt.defaultReturns, call.ReturnArguments)
 				}
 			})
 
@@ -669,8 +775,8 @@ func TestExpectMulti(t *testing.T) {
 
 					require.Len(t, mock.ExpectedCalls, 3)
 					for _, call := range mock.ExpectedCalls {
-						require.Equal(t, toArgs(example.args...), call.Arguments)
-						require.Equal(t, toArgs(example.returns...), call.ReturnArguments)
+						requireEqualArgs(t, example.args, call.Arguments)
+						requireEqualArgs(t, example.returns, call.ReturnArguments)
 					}
 				},
 				)
@@ -695,8 +801,8 @@ func TestExpectMulti(t *testing.T) {
 
 						require.Len(t, mock.ExpectedCalls, 3)
 						for _, call := range mock.ExpectedCalls {
-							require.Equal(t, toArgs(example.args...), call.Arguments)
-							require.Equal(t, toArgs(example.returns...), call.ReturnArguments)
+							requireEqualArgs(t, example.args, call.Arguments)
+							requireEqualArgs(t, example.returns, call.ReturnArguments)
 						}
 					},
 				)
@@ -771,11 +877,7 @@ func TestExpectMulti(t *testing.T) {
 				)
 
 				require.Len(t, mock.ExpectedCalls, 1)
-				require.Equal(
-					t,
-					toArgs(tt.defaultReturns...),
-					mock.ExpectedCalls[0].ReturnArguments,
-				)
+				requireEqualArgs(t, tt.defaultReturns, mock.ExpectedCalls[0].ReturnArguments)
 			})
 
 			t.Run("WithDefaultReturns() adds to return only if Expect empty", func(t *testing.T) {
@@ -791,11 +893,7 @@ func TestExpectMulti(t *testing.T) {
 				)
 
 				require.Len(t, mock.ExpectedCalls, 1)
-				require.Equal(
-					t,
-					toArgs(tt.defaultReturns...),
-					mock.ExpectedCalls[0].ReturnArguments,
-				)
+				requireEqualArgs(t, tt.defaultReturns, mock.ExpectedCalls[0].ReturnArguments)
 			})
 
 			if len(tt.returnTypes) > 0 {
@@ -927,11 +1025,17 @@ func isCallOptional(call tpp.MockCall) bool {
 	return *(*bool)(ptr)
 }
 
-func toArgs(a ...any) testifymock.Arguments {
+// requireEqualArgs compares two mock.Arguments (either args or returns).
+func requireEqualArgs(t *testing.T, a []any, b testifymock.Arguments) {
+	require.Equal(t, len(a), len(b))
+
 	if len(a) == 0 {
-		return testifymock.Arguments{}
+		// Testify is pretty inconsistent with whether it uses nil or empty args,
+		// so checking for == 0 is the best we can do.
+		return
 	}
-	return testifymock.Arguments(a)
+
+	require.Equal(t, testifymock.Arguments(a), b)
 }
 
 // placeholders returns an n tpp.Arg() slice.

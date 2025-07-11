@@ -85,13 +85,11 @@ func (rm *reflectedMockCall) GetArguments() ([]any, error) {
 // the arguments but an interface like tpp.MockCall can't specify field values
 // in Go.
 func (rm *reflectedMockCall) SetArguments(args []any) {
-	newSlice := reflect.MakeSlice(rm.args.Type(), len(args), len(args))
-
+	rargs := reflect.MakeSlice(rm.args.Type(), len(args), len(args))
 	for i, a := range args {
-		newSlice.Index(i).Set(reflect.ValueOf(a))
+		rargs.Index(i).Set(reflect.ValueOf(a))
 	}
-
-	rm.args.Set(newSlice)
+	rm.args.Set(rargs)
 }
 
 // CallReturnEmpty calls the mock's Return method with empty values.
@@ -99,9 +97,9 @@ func (rm *reflectedMockCall) SetArguments(args []any) {
 // If an optional error is provided, we will use that for error values.
 func (rm *reflectedMockCall) CallReturnEmpty(retErr error) {
 	var (
-		returnType = rm.returnMethod.Type()
-		returnLen  = returnType.NumIn()
-		emptyArgs  = make([]reflect.Value, 0)
+		returnType                 = rm.returnMethod.Type()
+		returnLen                  = returnType.NumIn()
+		emptyArgs  []reflect.Value = nil
 	)
 
 	if returnLen == 1 && returnType.In(0).Name() == "" && retErr != nil {
