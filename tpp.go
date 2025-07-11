@@ -104,7 +104,7 @@ type callBuilder struct {
 func (c *callBuilder) Return(returns ...any) Expect {
 	return Expect{
 		Expected:        ptr(true),
-		ArgReplacements: c.args,
+		argReplacements: c.args,
 		Return:          returns,
 		exactReturn:     true,
 	}
@@ -157,13 +157,6 @@ type Expect struct {
 	//   - nil   => The mock may or may not be called
 	Expected *bool
 
-	// ArgReplacements are optional arguments which we will use to replace any
-	// tpp.Arg values in the mock.Arguments. These will *only* be added to the mock
-	// call if its arguments are specified as tpp.Arg().
-	//
-	// See tpp.Arg() for more info.
-	ArgReplacements []any
-
 	// Return are the return arguments for the mock.
 	//
 	// In some cases, these can be incomplete. For example, if the Expect is
@@ -173,9 +166,22 @@ type Expect struct {
 	// zeroed out.
 	Return []any
 
-	// NTimes indicates that the mock should only return the indicated number
+	// Err determines the error which will be appended to the mock's returns.
+	// If it is nil, no error will be appended.
+	//
+	// This is separated out from `Return` for convenience and readability.
+	Err error
+
+	// argReplacements are optional arguments which we will use to replace any
+	// tpp.Arg values in the mock.Arguments. These will *only* be added to the mock
+	// call if its arguments are specified as tpp.Arg().
+	//
+	// See tpp.Arg() for more info.
+	argReplacements []any
+
+	// nTimes indicates that the mock should only return the indicated number
 	// of times.
-	NTimes int
+	nTimes int
 
 	// exactReturn determines that the mock should be configured to return exactly
 	// what is specified by Return, and not have errors zero-valued out if
@@ -183,20 +189,7 @@ type Expect struct {
 	// Given(xxx).Return(yyy), while also maintaining backwards compatibility,
 	// since e.g., OK() implicitly zeroes out errors. This isn't the preferred way
 	// of doing things, so we'll move towards being more explicit.
-	//
-	// TODO: tidy this up. OK() and Err() are fine and useful, but callers have
-	// relied on the zeroing-error behaviour for raw Expect{Return: xxx}s and after
-	// messing with Expect.Return. We should discourage (or make impossible?) both
-	// of those things in a future breaking change-- I think Expects fields should
-	// be unexported. Then this can become something like `zeroOutErrors` and be
-	// set by OK().
 	exactReturn bool
-
-	// Err determines the error which will be appended to the mock's returns.
-	// If it is nil, no error will be appended.
-	//
-	// This is separated out from `Return` for convenience and readability.
-	Err error
 }
 
 // Injecting returns a new Expect with the given |ret| injected into its Return.
@@ -217,7 +210,7 @@ func (e *Expect) Injecting(ret any) *Expect {
 // Times indicates that the mock should only return the indicated number of times.
 // of times.
 func (e Expect) Times(n int) Expect {
-	e.NTimes = n
+	e.nTimes = n
 	return e
 }
 
@@ -288,8 +281,8 @@ func (e *Expect) Expectorise(mock MockCall, options ...ExpectoriseOption) {
 		mock.Maybe()
 	}
 
-	if e.NTimes > 0 {
-		mock.Times(e.NTimes)
+	if e.nTimes > 0 {
+		mock.Times(e.nTimes)
 	}
 
 	rmock, err := newReflectedMockCall(mock)
@@ -306,13 +299,13 @@ func (e *Expect) Expectorise(mock MockCall, options ...ExpectoriseOption) {
 	var newargs []any
 	for i, arg := range args {
 		if _, ok := arg.(templateArg); ok {
-			if i >= len(e.ArgReplacements) {
+			if i >= len(e.argReplacements) {
 				// We've ran out of supplied args. This happens commonly, since the
 				// Expect might be empty or an error, but the test-body specifies
 				// a tpp.Arg() for the mock arguments. Fall back to mock.Anything.
 				newargs = append(newargs, testifymock.Anything)
 			} else {
-				newargs = append(newargs, e.ArgReplacements[i])
+				newargs = append(newargs, e.argReplacements[i])
 				i++
 			}
 		} else {
