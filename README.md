@@ -10,8 +10,8 @@
 
 ## What is T++?
 
-This package has some generic helpers to facilitate writing configuration driven tests.
-These are where one single meta-test is written which is then configured by a passed in struct, which defines the actual test behaviour.
+This package has some generic helpers to facilitate writing table driven tests with mockery/testify mocks.
+These tests are where one single meta-test is written which is then configured by a passed in struct, which defines the actual test behaviour.
 
 ## Why T++?
 Using this package, you can write a single test function that can be configured to run multiple test cases. This is useful when you have a lot of similar test cases that only differ in the input data or the expected output.
@@ -54,7 +54,7 @@ func TestXXX(t *testing.T) {
 	}{
 		{
 			name:    "OK",
-			getFoo:  tpp.OK("foo"),
+			getFoo:  tpp.Return("foo", nil),
 			wantErr: false
 		},
 		{
@@ -62,9 +62,21 @@ func TestXXX(t *testing.T) {
 			getFoo:  tpp.Err(),
 			wantErr: true,
 		},
+		{
+			name: "BLANK",
+			wantErr: false
+		},
 	} {
 		t.Run(tt.name, func(t *testing.T) {
 			mock := mymocks.NewBar(t)
+
+			// This configures the given mock call according to the
+			// Expect. For example, in the first test case it will
+			// configure the mock to return ("foo", nil). In the
+			// second, it will configure it to return ("", someErr).
+			// In the third, it will configure it to return empty
+			// values ("", nil) and make it an optional call with
+			// Maybe().
 			tt.getFoo.Expectorise(mock.EXPECT().GetFoo())
 
 			subject := subject.New(mock)
