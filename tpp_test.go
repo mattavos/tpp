@@ -408,6 +408,22 @@ func TestExpect(t *testing.T) {
 						requireEqualArgs(t, args, call.Arguments)
 					})
 
+					t.Run("Given().Return() works with mock.MatchedBy", func(t *testing.T) {
+						args := replaceLast(
+							example.args,
+							testifymock.MatchedBy(
+								func(testifymock.Arguments) bool {
+									return true
+								},
+							),
+						)
+
+						expect := tpp.Given(args...).Return(example.returns...)
+						call, _ := tt.expectoriseCall(expect, placeholders(len(example.args)))
+
+						requireEqualArgs(t, args, call.Arguments)
+					})
+
 					t.Run("Given().Return() can handle tpp.Arg() injection", func(t *testing.T) {
 						// tpp.Arg() can be used to signify that the value will be filled in
 						// later by the meta-test. So here we Expect using tpp.Arg() as the
