@@ -166,9 +166,24 @@ var testStructures = []struct {
 				returns: []any{[]int{4, 5, 6}, error(nil)},
 			},
 			{
-				name:    "empty",
+				name:    "empty return",
 				args:    []any{context.Background(), []int{1, 2, 3}},
 				returns: []any{[]int{}, error(nil)},
+			},
+			{
+				name:    "nil return",
+				args:    []any{context.Background(), []int{1, 2, 3}},
+				returns: []any{([]int)(nil), error(nil)},
+			},
+			{
+				name:    "empty args",
+				args:    []any{context.Background(), []int{}},
+				returns: []any{[]int{4, 5, 6}, error(nil)},
+			},
+			{
+				name:    "nil args",
+				args:    []any{context.Background(), nil},
+				returns: []any{[]int{4, 5, 6}, error(nil)},
 			},
 			{
 				name:    "err",
@@ -208,7 +223,7 @@ var testStructures = []struct {
 		expectoriseCall: func(expect tpp.Expect, args []any, opts ...tpp.ExpectoriseOption) (*testifymock.Call, *testifymock.Mock) {
 			must(len(args) == 0, "expectoriseCall: wrong arg count")
 			mock := testdata.NewMockEmptyThing(_t())
-			call := mock.EXPECT().DoThing().Return()
+			call := mock.EXPECT().DoThing()
 			expect.Expectorise(call, opts...)
 			return call.Call, &mock.Mock
 		},
