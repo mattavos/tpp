@@ -85,10 +85,21 @@ func (rm *reflectedMockCall) GetArguments() ([]any, error) {
 // the arguments but an interface like tpp.MockCall can't specify field values
 // in Go.
 func (rm *reflectedMockCall) SetArguments(args []any) {
-	rargs := reflect.MakeSlice(rm.args.Type(), len(args), len(args))
+	var (
+		rargs    = reflect.MakeSlice(rm.args.Type(), len(args), len(args))
+		elemType = rargs.Type().Elem()
+	)
+
 	for i, a := range args {
-		rargs.Index(i).Set(reflect.ValueOf(a))
+		var v reflect.Value
+		if a == nil {
+			v = reflect.Zero(elemType)
+		} else {
+			v = reflect.ValueOf(a)
+		}
+		rargs.Index(i).Set(v)
 	}
+
 	rm.args.Set(rargs)
 }
 
